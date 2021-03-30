@@ -1,5 +1,6 @@
 /test
 /build
 /assets
+/.cache
 compile_commands.json
 
