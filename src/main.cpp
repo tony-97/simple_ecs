@@ -234,7 +234,7 @@ int main()
     InitWindow(ScreenWidth, ScreenHeight, "Asteroid 3.0");
     SetTargetFPS(4096);
 
-    Texture2D sprite = LoadTexture("/home/family/asteroids2/assets/wabbit_alpha.png");
+    Texture2D sprite = LoadTexture("../assets/wabbit_alpha.png");
     GameEntityManager ent_man {  };
     for (std::size_t i = 0; i < 10000; ++i) {
         CreateBall(ent_man, sprite);
