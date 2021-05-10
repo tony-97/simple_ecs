@@ -229,6 +229,7 @@ static void UpdateInputSystem(const InputComponent_t& inp,
     if (IsKeyDown(inp.key_left))  { phy.vel.x = -vel; }
 }
 
+
 int main()
 {
     InitWindow(ScreenWidth, ScreenHeight, "Asteroid 3.0");
@@ -246,6 +247,7 @@ int main()
         ent_man.DoForEachComponentType(UpdateInputSystem);
         ent_man.DoForEachComponentType(UpdatePhysicsSystem);
         ent_man.DoForEachComponentType(UpdateScreenColliderSystem);
+        ent_man.DoForEachComponentType<MPL::TypeList_t<RenderComponent_t, PhysicsComponent_t>>([](RenderComponent_t&, PhysicsComponent_t&){});
     }
 
     CloseWindow();

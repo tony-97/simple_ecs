@@ -9,9 +9,37 @@
 #include <ecs/util/type_aliases.hpp>
 #include <ecs/util/helpers.hpp>
 #include <ecs/cmp/entity.hpp>
+#include <mpl/type_list.hpp>
 
 namespace ECS
 {
+
+struct FunctorHelperExtractor_t
+{
+    template<class MainComponent_t,
+             class... ExtraComponents_t,
+             class EntManager_t,
+             class Callable_t>
+    constexpr auto
+    operator()(EntManager_t&& ent_man, Callable_t&& callable) -> void
+    {
+        auto vec_cmps { ent_man.template
+                        GetRequieredComponentStorage<MainComponent_t>() };
+
+        for (auto& cmp : vec_cmps) {
+            auto& ent { ent_man.template GetEntityByComponent(cmp) };
+            std::apply
+            (
+             callable,
+             Elements_t<MainComponent_t, ExtraComponents_t...>
+             {
+              cmp,
+              ent_man.template GetRequieredComponent<ExtraComponents_t>(ent)... 
+             }
+            );
+        }
+    }
+};
 
 template<typename CMP_t, typename ...CMPS_t>
 struct EntityManager_t final
@@ -54,6 +82,12 @@ struct EntityManager_t final
                                   ent_id);
     }
 
+    template<typename Component_t>
+    constexpr auto GetEntityByComponent(Component_t&& cmp) -> OwnEntity_t&
+    {
+        return GetEntityByID(cmp.GetEntityID());
+    }
+
     template<typename REQ_CMP_t>
     constexpr auto
     GetRequieredComponentStorage() const
@@ -79,12 +113,12 @@ struct EntityManager_t final
     auto CreateRequieredComponent(OwnEntity_t& ent, Args&& ...args) 
                                                                    -> REQ_CMP_t&
     {
-        auto& cmp 
+        auto& cmp
         {
             m_Components.
                     template CreateRequieredComponent<REQ_CMP_t>
                              (
-                              ent.GetEntityID(), 
+                              ent.GetEntityID(),
                               std::forward<Args>(args)...
                              )
         };
@@ -152,12 +186,6 @@ struct EntityManager_t final
         }
 
         return optional_cmp;
-       // return SameAsConstMemFunc
-       //        (
-       //         this,
-       //         &EntityManager_t::GetRequieredComponent<OptionalCMPT_t>, 
-       //         ent
-       //        );
     }
 
     template<typename REQ_CMP_t,
@@ -197,13 +225,6 @@ struct EntityManager_t final
         };
 
         return m_Components.template GetRequieredComponent<REQ_CMP_t>(cmp_id);
-
-       // return SameAsConstMemFunc
-       //        (
-       //         this,
-       //         &EntityManager_t::GetRequieredComponent<REQ_CMP_t>, 
-       //         ent
-       //        );
     }
 
     template<typename ...REQ_CMPS_t>
@@ -261,6 +282,18 @@ struct EntityManager_t final
              }
             );
         }
+    }
+
+    template<class SysSignature_t, class Callable_t>
+    constexpr auto DoForEachComponentType(Callable_t&& callable)
+    {
+        using SysExtract = MPL::TypeListExtractor_t<SysSignature_t>;
+
+        SysExtract::template invoke_functor<FunctorHelperExtractor_t>
+            (
+             *this,
+             std::forward<Callable_t>(callable)
+            );
     }
 
 private:
