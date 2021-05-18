@@ -3,7 +3,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace MPL
+namespace TMP
 {
 
 template<class... Args_t>

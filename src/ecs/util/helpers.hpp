@@ -113,6 +113,7 @@ template<class Element_t, class TElements_t>
 struct IndexOfElement_t
 {
 
+private:
     template<std::size_t I, class T, class TElemns_t>
     static constexpr auto GetIndex() -> std::size_t
     {
@@ -121,7 +122,7 @@ struct IndexOfElement_t
         static_assert(!isOutOfRange, "The element does not exist.");
 
         if constexpr (!isOutOfRange) {
-            typedef typename std::tuple_element_t<I, TElemns_t> element_tp;
+            using element_tp = std::tuple_element_t<I, TElemns_t>;
             if constexpr (std::is_same_v<T, element_tp>) {
                 return I;
             } else {
@@ -130,7 +131,8 @@ struct IndexOfElement_t
         }
     }
 
-    static inline constexpr std::size_t value
+public:
+    constexpr static inline std::size_t value
     {
         GetIndex<0, Element_t, TElements_t>()
     };

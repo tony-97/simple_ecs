@@ -9,7 +9,7 @@
 #include <ecs/util/type_aliases.hpp>
 #include <ecs/util/helpers.hpp>
 #include <ecs/cmp/entity.hpp>
-#include <mpl/type_list.hpp>
+#include <tmp/type_list.hpp>
 
 namespace ECS
 {
@@ -287,7 +287,7 @@ struct EntityManager_t final
     template<class SysSignature_t, class Callable_t>
     constexpr auto DoForEachComponentType(Callable_t&& callable)
     {
-        using SysExtract = MPL::TypeListExtractor_t<SysSignature_t>;
+        using SysExtract = TMP::TypeListExtractor_t<SysSignature_t>;
 
         SysExtract::template invoke_functor<FunctorHelperExtractor_t>
             (
