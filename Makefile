@@ -1,6 +1,6 @@
 export RAYLIB_PATH ?= $(HOME)/raylib
 
-export BUILD_MODE     := RELEASE 
+export BUILD_MODE     := RELEASE
 
 export RAYLIB_LIBTYPE := STATIC
 
