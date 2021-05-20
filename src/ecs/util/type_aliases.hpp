@@ -1,6 +1,7 @@
 #pragma once
 
 #include <tuple>
+#include <utility>
 #include <vector>
 #include <memory>
 #include <optional>
@@ -36,7 +37,7 @@ using IndexableInstance_t = IdentificableForEachInstance_t<
                                                            PostIncrement<ID_t>>;
 
 template<class T>
-using Owned_t = std::unique_ptr<T>;
+using Owned_t    = std::unique_ptr<T>;
 
 template<class T>
 using Optional_t = std::optional<T>;
@@ -46,5 +47,8 @@ using Nullable_t = std::optional<std::reference_wrapper<T>>;
 
 template<class ...Ts>
 using Elements_t = std::tuple<Ts...>;
+
+template<class T1, class T2>
+using Combine_t = std::pair<T1, T2>;
 
 } // namespace ECS

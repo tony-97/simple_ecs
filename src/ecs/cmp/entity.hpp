@@ -13,6 +13,7 @@ struct EntityBase_t
 {
 protected:
 
+    constexpr
     void AttachComponentID(ComponentTypeID_t cmp_tp_id,
                            ComponentID_t cmp_id)
     {
@@ -32,23 +33,28 @@ protected:
 
         return cmp_id;
     }
+
     auto FindRequiredComponentID(ComponentTypeID_t cmp_tp_id)
                                                     -> Optional_t<ComponentID_t>
     {
-        return const_cast<const EntityBase_t*>(this)->FindRequiredComponentID(cmp_tp_id);
+        return const_cast<const EntityBase_t*>(this)
+                                           ->FindRequiredComponentID(cmp_tp_id);
     }
 
+    constexpr
     auto GetRequiredComponentID(ComponentTypeID_t cmp_tp_id) const
                                                                 -> ComponentID_t
     {
-        assert_msg(FindRequiredComponentID(cmp_tp_id), "The required component"
-                                                       " does not exist");
+        assert_msg(FindRequiredComponentID(cmp_tp_id), "The entity doesn't"
+                                                       " have the component");
         return const_cast<EntityBase_t*>(this)->m_Comps[cmp_tp_id];
     }
 
+    constexpr
     auto GetRequiredComponentID(ComponentTypeID_t cmp_tp_id) -> ComponentID_t
     {
-        return const_cast<const EntityBase_t*>(this)->GetRequiredComponentID(cmp_tp_id);
+        return const_cast<const EntityBase_t*>(this)
+                                            ->GetRequiredComponentID(cmp_tp_id);
     }
 
 private:
@@ -61,8 +67,9 @@ struct Entity_t final : public EntityBase_t,
 {
     friend EntMan_t;
 
+    constexpr
     Entity_t(Entity_t<EntMan_t>&& ent_temp)
-        : EntityBase_t {std::move(ent_temp) },
+        : EntityBase_t { std::move(ent_temp) },
           m_ID { ent_temp.m_ID }
     {
 

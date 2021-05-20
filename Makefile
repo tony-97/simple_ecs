@@ -35,7 +35,7 @@ export BUILD_PATH := $(BUILD_MODE_PATH)
 endif
 
 
-.PHONY: all dirs info clean cleanall
+.PHONY: all run dirs info clean cleanall
 
 all: dirs
 	$(MAKE) -f Makefile.gen
