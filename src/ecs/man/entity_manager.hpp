@@ -14,7 +14,7 @@
 namespace ECS
 {
 
-struct FunctorHelperExtractor_t
+struct ComponentExtractor_t
 {
     template<class MainComponent_t,
              class... ExtraComponents_t,
@@ -23,24 +23,19 @@ struct FunctorHelperExtractor_t
     constexpr auto
     operator()(EntManager_t&& ent_man, Callable_t&& callable) -> void
     {
-        auto& vec_cmps { ent_man.template
-                         GetRequieredComponentStorage<MainComponent_t>() };
-
-        for (auto& cmp_s : vec_cmps) {
-            auto& ent { ent_man.template GetEntityByComponent(cmp_s) };
-            std::invoke
-            (
-             callable,
-             cmp_s.m_component,
-             ent_man.template GetRequieredComponent<ExtraComponents_t>(ent)... 
-            );
-        }
+        ent_man.template DoForEachComponentTypeIMPL<MainComponent_t,
+                                                    ExtraComponents_t...>
+                                                        (std::forward
+                                                         <Callable_t>
+                                                         (callable));
     }
 };
 
 template<class... Components_t>
-struct EntityManager_t final
+class EntityManager_t final
 {
+
+public:
 
     using Self_t = EntityManager_t<Components_t...>;
     using SelfComponentStorage_t = ComponentStorage_t<Self_t>;
@@ -84,10 +79,21 @@ struct EntityManager_t final
                                   ent_id);
     }
 
-    template<typename ComponentS_t>
-    constexpr auto GetEntityByComponent(ComponentS_t&& cmp_s) -> OwnEntity_t&
+    template<typename ComponentStructure_t>
+    constexpr auto GetEntityByComponent(ComponentStructure_t&& cmp_s)
+    -> OwnEntity_t&
     {
         return GetEntityByID(cmp_s.m_ent_id);
+    }
+
+    template<typename ComponentStructure_t>
+    constexpr auto GetEntityByComponent(ComponentStructure_t&& cmp_s) const
+    -> const OwnEntity_t&
+    {
+        return SameAsConstMemFunc(this,
+                                  &EntityManager_t::template
+                                  GetEntityByComponent<ComponentStructure_t>,
+                                  cmp_s);
     }
 
     template<typename ReqCmp_t>
@@ -95,7 +101,7 @@ struct EntityManager_t final
     GetRequieredComponentStorage() const
                                  -> const ComponentStore_t<RemovePCR<ReqCmp_t>>&
     {
-        return m_Components.template GetRequieredComponentStorage<ReqCmp_t>();
+        return m_Components.template GetRequieredComponentStorage<RemovePCR<ReqCmp_t>>();
     }
 
     template<typename ReqCmp_t>
@@ -105,24 +111,24 @@ struct EntityManager_t final
         return SameAsConstMemFunc
                (
                  this,
-                 &EntityManager_t:: 
+                 &EntityManager_t::
                  GetRequieredComponentStorage<ReqCmp_t>
                );
     }
 
     template<typename ReqCmp_t, typename ...Args_t>
     constexpr
-    auto CreateRequieredComponent(OwnEntity_t& ent, Args_t&& ...args) 
+    auto CreateRequieredComponent(OwnEntity_t& ent, Args_t&& ...args)
                                                                    -> ReqCmp_t&
     {
-        auto& [cmp_id, cmp]
+        auto [cmp_id, cmp]
         {
-            m_Components.
-                    template CreateRequieredComponent<ReqCmp_t>
-                             (
-                              ent.GetEntityID(),
-                              std::forward<Args_t>(args)...
-                             )
+            m_Components.template
+                    CreateRequieredComponent<ReqCmp_t>
+                            (
+                             ent.GetEntityID(),
+                             std::forward<Args_t>(args)...
+                            )
         };
 
         const auto cmp_tp_id
@@ -164,13 +170,13 @@ struct EntityManager_t final
     }
 
     template<typename OptionalCMPT_t,
-             typename REQ_CMP_t = typename OptionalCMPT_t::value_type::type>
+             typename ReqCmp_t = typename OptionalCMPT_t::value_type::type>
     constexpr auto
-    GetRequieredComponent(const OwnEntity_t& ent) -> const Nullable_t<REQ_CMP_t> 
+    GetRequieredComponent(const OwnEntity_t& ent) -> const Nullable_t<ReqCmp_t> 
     {
         const auto cmp_tp_id
         {
-            m_Components.template GetRequiredComponentTypeID<REQ_CMP_t>()
+            m_Components.template GetRequiredComponentTypeID<ReqCmp_t>()
         };
 
         const auto cmp_id
@@ -178,11 +184,11 @@ struct EntityManager_t final
             ent.FindRequiredComponentID(cmp_tp_id)
         };
 
-        Nullable_t<REQ_CMP_t> optional_cmp {  };
+        Nullable_t<ReqCmp_t> optional_cmp {  };
         if (cmp_id) {
             auto& cmp
             {
-                m_Components.template GetRequieredComponent<REQ_CMP_t>(*cmp_id)
+                m_Components.template GetRequieredComponentByID<ReqCmp_t>(*cmp_id)
             };
             optional_cmp.emplace(std::ref(cmp));
         }
@@ -191,7 +197,7 @@ struct EntityManager_t final
     }
 
     template<typename REQ_CMP_t,
-             typename std::enable_if_t<IsOneOf<RemovePCR<REQ_CMP_t>,
+             typename std::enable_if_t<IsOneOf<REQ_CMP_t,
                                        Components_t...>::value, bool> = true>
     constexpr auto
     GetRequieredComponent(const OwnEntity_t& ent) const
@@ -207,12 +213,13 @@ struct EntityManager_t final
             ent.GetRequiredComponentID(cmp_tp_id)
         };
 
-        return m_Components.template GetRequieredComponent<REQ_CMP_t>(cmp_id);
+        return m_Components.template GetRequieredComponentByID<REQ_CMP_t>(cmp_id);
     }
 
     template<typename REQ_CMP_t,
-             typename std::enable_if_t<IsOneOf<RemovePCR<REQ_CMP_t>,
-                                       CMP_t, CMPS_t...>::value, bool> = true>
+             typename std::enable_if_t<IsOneOf
+                                       <REQ_CMP_t,
+                                        Components_t...>::value, bool> = true>
     constexpr auto
     GetRequieredComponent(const OwnEntity_t& ent) -> REQ_CMP_t& 
     {
@@ -232,7 +239,7 @@ struct EntityManager_t final
     template<typename ...REQ_CMPS_t>
     constexpr auto
     GetRequieredComponents([[maybe_unused]]const OwnEntity_t& ent) const
-                                            -> const Elements_t<const REQ_CMPS_t...>
+                                       -> const Elements_t<const REQ_CMPS_t&...>
     {
         return { GetRequieredComponent<REQ_CMPS_t>(ent)... };
     }
@@ -240,7 +247,7 @@ struct EntityManager_t final
     template<typename ...REQ_CMPS_t>
     constexpr auto
     GetRequieredComponents([[maybe_unused]]const OwnEntity_t& ent)
-                                                -> Elements_t<REQ_CMPS_t...>
+                                                   -> Elements_t<REQ_CMPS_t&...>
     {
         return SameAsConstMemFunc
                (
@@ -250,48 +257,48 @@ struct EntityManager_t final
                );
     }
 
-    template<class MAIN_CMP_t, class ...EXTRA_CMPS_t>
+    template<class MainCmp_t,
+             class... ExtraCmp_t,
+             class Callable_t>
     constexpr auto
-    DoForEachComponentType(void (*sys_upd)(MAIN_CMP_t, EXTRA_CMPS_t...)) -> void
+    DoForEachComponentTypeIMPL(Callable_t&& callable) -> void
     {
-        for (auto& cmp : GetRequieredComponentStorage<MAIN_CMP_t>()) {
-            auto& ent { GetEntityByID(cmp.GetEntityID()) };
-            std::apply
-            (
-             sys_upd,
-             Elements_t<MAIN_CMP_t, EXTRA_CMPS_t...>
-             {
-              cmp,
-              GetRequieredComponent<EXTRA_CMPS_t>(ent)... 
-             }
-            );
+        for (auto& [eid, cmp] : GetRequieredComponentStorage<MainCmp_t>()) {
+            auto& ent { GetEntityByID(eid) };
+            std::invoke(callable,
+                        cmp,
+                        GetRequieredComponent<ExtraCmp_t>(ent)...);
         }
     }
 
     template<class MAIN_CMP_t, class ...EXTRA_CMPS_t>
     constexpr auto
-    DoForEachComponentType(void (*sys_upd)(MAIN_CMP_t, EXTRA_CMPS_t...)) const -> void
+    DoForEachComponentType(void (&sys_upd)(MAIN_CMP_t, EXTRA_CMPS_t...)) -> void
     {
-        for (auto& cmp : GetRequieredComponentStorage<MAIN_CMP_t>()) {
-            auto& ent { GetEntityByID(cmp.GetEntityID()) };
-            std::apply
-            (
-             sys_upd,
-             Elements_t<MAIN_CMP_t, EXTRA_CMPS_t...>
-             {
-              cmp,
-              GetRequieredComponent<EXTRA_CMPS_t>(ent)... 
-             }
-            );
-        }
+        DoForEachComponentTypeIMPL<RemovePCR<MAIN_CMP_t>,
+                                   RemovePCR<EXTRA_CMPS_t>...>
+                                       (sys_upd);
     }
 
-    template<class SysSignature_t, class Callable_t>
+    template<class MAIN_CMP_t, class ...EXTRA_CMPS_t>
+    constexpr auto
+    DoForEachComponentType(void (&sys_upd)(const MAIN_CMP_t,
+                                           const EXTRA_CMPS_t...)) const
+    -> void
+    {
+        DoForEachComponentTypeIMPL<RemovePCR<MAIN_CMP_t>,
+                                   RemovePCR<EXTRA_CMPS_t>...>(sys_upd);
+    }
+
+    template<class SysSignature_t,
+             class Callable_t,
+             std::enable_if_t<IsVariadicTemplated<SysSignature_t>::value,
+                              bool> = true>
     constexpr auto DoForEachComponentType(Callable_t&& callable) -> void
     {
         using SysExtract = TMP::TypeListExtractor_t<SysSignature_t>;
 
-        SysExtract::template invoke_functor<FunctorHelperExtractor_t>
+        SysExtract::template invoke_functor<ComponentExtractor_t>
             (
              *this,
              std::forward<Callable_t>(callable)

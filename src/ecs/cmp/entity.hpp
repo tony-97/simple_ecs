@@ -13,7 +13,6 @@ struct EntityBase_t
 {
 protected:
 
-    constexpr
     void AttachComponentID(ComponentTypeID_t cmp_tp_id,
                            ComponentID_t cmp_id)
     {
@@ -41,7 +40,6 @@ protected:
                                            ->FindRequiredComponentID(cmp_tp_id);
     }
 
-    constexpr
     auto GetRequiredComponentID(ComponentTypeID_t cmp_tp_id) const
                                                                 -> ComponentID_t
     {
@@ -50,7 +48,6 @@ protected:
         return const_cast<EntityBase_t*>(this)->m_Comps[cmp_tp_id];
     }
 
-    constexpr
     auto GetRequiredComponentID(ComponentTypeID_t cmp_tp_id) -> ComponentID_t
     {
         return const_cast<const EntityBase_t*>(this)

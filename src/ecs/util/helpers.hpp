@@ -11,6 +11,18 @@ namespace ECS
 // assert with a mensage from cppreference
 #define assert_msg(exp, msg) assert(((void)(msg), (exp)))
 
+template<class T>
+struct IsVariadicTemplated
+{
+    inline static constexpr bool value { false };
+};
+
+template<template<class...> class T, class... Argst_t>
+struct IsVariadicTemplated<T<Argst_t...>>
+{
+    inline static constexpr bool value { true };
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 // contains
 ///////////////////////////////////////////////////////////////////////////////

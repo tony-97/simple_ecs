@@ -1,6 +1,7 @@
 #pragma once
 
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 #include <memory>
@@ -24,11 +25,7 @@ using SystemUpdate = auto (*)(MAIN_CMP_t&& main_cmp,
                               EXTRA_CMPS_t&&... extra_cmps) -> void;
 
 template<typename T>
-using RemovePCR = typename std::remove_const
-                        <typename std::remove_reference
-                            <typename std::remove_pointer<T>::type>
-                                                                ::type>
-                                                                    ::type;
+using RemovePCR = std::remove_pointer_t<std::decay_t<T>>;
 
 template<typename T, typename ID_t>
 using IndexableInstance_t = IdentificableForEachInstance_t<

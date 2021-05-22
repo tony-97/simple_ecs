@@ -20,20 +20,17 @@ BUILD_DIR := build
 
 BUILD_MODE_PATH = $(BUILD_DIR)/$(BUILD_NAME)
 
-# FIXME BUILD_MODE default value does not work
 ifeq ($(BUILD_MODE),RELEASE)
 	CPPFLAGS   += -DNDEBUG
 	CXXFLAGS   += -march=native -O2 -s
 	BUILD_NAME := release
-export OBJ_DIR    := $(BUILD_MODE_PATH)/obj
-export BUILD_PATH := $(BUILD_MODE_PATH)
 else
 	CXXFLAGS   += -g -ggdb -O0
 	BUILD_NAME := debug
-export OBJ_DIR    := $(BUILD_MODE_PATH)/obj
-export BUILD_PATH := $(BUILD_MODE_PATH)
 endif
 
+export OBJ_DIR    := $(BUILD_MODE_PATH)/obj
+export BUILD_PATH := $(BUILD_MODE_PATH)
 
 .PHONY: all run dirs info clean cleanall
 

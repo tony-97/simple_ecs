@@ -14,16 +14,19 @@ template<class EntMan_t> class ComponentStorage_t;
 template<template<class...> class EntMan_t,  class... Components_t>
 class ComponentStorage_t<EntMan_t<Components_t...>> final : Uncopyable_t
 {
+
+public:
+
     template<class EntID_t, class Component_t>
     struct ComponentStruct_t
     {
-        friend ComponentStorage_t<Components_t...>;
-        friend EntMan_t<Components_t...>;
+        friend class ComponentStorage_t<EntMan_t<Components_t...>>;
+        friend class EntMan_t<Components_t...>;
 
         template<class EID_t, class... Args_t>
         constexpr explicit ComponentStruct_t(EID_t&& eid, Args_t&&... args)
         : m_ent_id{ std::forward<EID_t>(eid) },
-          m_component{ std::forward<Args_t>(args)... } {  };
+          m_component{ std::forward<Args_t>(args)... } {  }
 
     private:
         EntID_t m_ent_id {  };
@@ -43,7 +46,7 @@ class ComponentStorage_t<EntMan_t<Components_t...>> final : Uncopyable_t
     template<typename ReqCmp_t, typename ...Args_t>
     constexpr
     auto CreateRequieredComponent(EntityID_t eid, Args_t&& ...args)
-                                -> Combine_t<ComponentID_t, RemovePCR<ReqCmp_t>&>
+                                -> Combine_t<ComponentID_t, ReqCmp_t&>
     {
         auto& vec_cmps { GetRequieredComponentStorage<ReqCmp_t>() };
 
@@ -56,7 +59,11 @@ class ComponentStorage_t<EntMan_t<Components_t...>> final : Uncopyable_t
     static constexpr auto
     GetRequiredComponentTypeID() -> ComponentTypeID_t
     {
-        return IndexOfElement_t<ComponentStore_t<ReqCmp_t>, ElementsT_t>::value;
+        auto index
+        {
+            IndexOfElement_t<ComponentStore_t<ReqCmp_t>, ElementsT_t>::value
+        };
+        return static_cast<ComponentTypeID_t>(index);
     }
 
     template<typename ReqCmp_t>
@@ -71,7 +78,7 @@ class ComponentStorage_t<EntMan_t<Components_t...>> final : Uncopyable_t
 
     template<typename ReqCmp_t>
     constexpr auto
-    GetRequieredComponentStorage() -> Storage_t<RemovePCR<ReqCmp_t>>&
+    GetRequieredComponentStorage() -> ComponentStore_t<RemovePCR<ReqCmp_t>>&
     {
         return SameAsConstMemFunc
                (
@@ -83,22 +90,23 @@ class ComponentStorage_t<EntMan_t<Components_t...>> final : Uncopyable_t
 
     template<typename ReqCmp_t>
     constexpr auto
-    GetRequieredComponent(ComponentID_t cmp_id) const
-                                                -> const RemovePCR<ReqCmp_t>&
+    GetRequieredComponentByID(ComponentID_t cmp_id) const
+                                                -> const ReqCmp_t&
     {
         auto& cmps { GetRequieredComponentStorage<ReqCmp_t>() };
 
-        return cmps[cmp_id];
+        return cmps[cmp_id].m_component;
     }
 
     template<typename ReqCmp_t>
     constexpr auto
-    GetRequieredComponent(ComponentID_t cmp_id) -> RemovePCR<ReqCmp_t>&
+    GetRequieredComponentByID(ComponentID_t cmp_id) -> ReqCmp_t&
     {
         return SameAsConstMemFunc
                (
                 this,
-                &ComponentStorage_t::template GetRequieredComponent<ReqCmp_t>,
+                &ComponentStorage_t::template
+                GetRequieredComponentByID<ReqCmp_t>,
                 cmp_id
                );
     }
