@@ -32,13 +32,17 @@ endif
 export OBJ_DIR    := $(BUILD_MODE_PATH)/obj
 export BUILD_PATH := $(BUILD_MODE_PATH)
 
+EXEC_FILE := $(BUILD_MODE_PATH)/$(EXEC_NAME)
+
 .PHONY: all run dirs info clean cleanall
 
-all: dirs
+$(EXEC_FILE):
 	$(MAKE) -f Makefile.gen
 
+all: dirs $(EXEC_FILE)
+
 run: all
-	$(BUILD_DIR)/$(BUILD_NAME)/$(EXEC_NAME)
+	$(EXEC_FILE)
 
 dirs:
 	$(MKDIR) $(BUILD_DIR) $(BUILD_DIR)/release $(BUILD_DIR)/debug
