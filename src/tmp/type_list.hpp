@@ -20,9 +20,9 @@ struct TypeListExtractor_t<TList_t<Args_t...>>
                 operator()<Args_t...>(std::declval<FArgs_t>()...));
 
     template<class Functor_t, class... FArgs_t>
-    constexpr static
-    Functor_Return_t<Functor_t, FArgs_t...>
+    constexpr static auto
     invoke_functor(FArgs_t&&... args)
+    -> Functor_Return_t<Functor_t, FArgs_t...>
     {
         return Functor_t{}.template
             operator()<Args_t...>(std::forward<FArgs_t>(args)...);

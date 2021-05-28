@@ -13,14 +13,14 @@ struct EntityBase_t
 {
 protected:
 
-    void AttachComponentID(ComponentTypeID_t cmp_tp_id,
-                           ComponentID_t cmp_id)
+    auto AttachComponentID(ComponentTypeID_t cmp_tp_id,
+                           ComponentID_t cmp_id) -> void
     {
         m_Comps[cmp_tp_id] = cmp_id;
     }
 
     auto FindRequiredComponentID(ComponentTypeID_t cmp_tp_id) const
-                                                    -> Optional_t<ComponentID_t>
+    -> Optional_t<ComponentID_t>
     {
         Optional_t<ComponentID_t> cmp_id {  };
 
@@ -34,24 +34,25 @@ protected:
     }
 
     auto FindRequiredComponentID(ComponentTypeID_t cmp_tp_id)
-                                                    -> Optional_t<ComponentID_t>
+    -> Optional_t<ComponentID_t>
     {
-        return const_cast<const EntityBase_t*>(this)
-                                           ->FindRequiredComponentID(cmp_tp_id);
+        return const_cast<const EntityBase_t*>
+               (this)->FindRequiredComponentID(cmp_tp_id);
     }
 
     auto GetRequiredComponentID(ComponentTypeID_t cmp_tp_id) const
-                                                                -> ComponentID_t
+    -> ComponentID_t
     {
         assert_msg(FindRequiredComponentID(cmp_tp_id), "The entity doesn't"
                                                        " have the component");
         return const_cast<EntityBase_t*>(this)->m_Comps[cmp_tp_id];
     }
 
-    auto GetRequiredComponentID(ComponentTypeID_t cmp_tp_id) -> ComponentID_t
+    auto GetRequiredComponentID(ComponentTypeID_t cmp_tp_id)
+    -> ComponentID_t
     {
-        return const_cast<const EntityBase_t*>(this)
-                                            ->GetRequiredComponentID(cmp_tp_id);
+        return const_cast<const EntityBase_t*>
+              (this)->GetRequiredComponentID(cmp_tp_id);
     }
 
 private:
@@ -72,14 +73,9 @@ struct Entity_t final : public EntityBase_t,
 
     };
 
-    constexpr auto GetEntityID() const -> EntityID_t
-    {
-        return m_ID;
-    }
-
     constexpr auto GetEntityID() -> EntityID_t
     {
-        return const_cast<const Entity_t*>(this)->GetEntityID();
+        return m_ID;
     }
 
 private:

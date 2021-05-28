@@ -1,37 +1,42 @@
+#include <raylib.h>
+
 #include <ecs/man/entity_manager.hpp>
-#include <tmp/type_list.hpp>
 
-#include <game/sys/sys.hpp>
-
-#include <iostream>
-
-struct PositionComponent_t
-{
-    int x {  };
-    int y {  };
-};
-
-struct PhysicsSystem_t : SystemBase_t<PositionComponent_t>
-{
-    template<class EntMan_t>
-    void Update(EntMan_t&& ent_man)
-    {
-        ent_man.template DoForEachComponentType<SystemSignature_t>(
-                [&](const PositionComponent_t& pos){
-                    std::cout << "X is: " << pos.x << " Y is: " << pos.y << std::endl;
-                });
-    }
-};
-
+#include <game/util/gamefactory.hpp>
 
 int main()
 {
-    ECS::EntityManager_t<PositionComponent_t> EntMan {  };
-    auto& ent { EntMan.CreateEntity() };
-    EntMan.CreateRequieredComponent<PositionComponent_t>(ent, 3, 4);
+    ECS::EntityManager_t<PhysicsComponent_t,
+                         RenderComponent_t,
+                         InputComponent_t,
+                         ColliderComponent_t,
+                         SpawnComponent_t> ent_man {  };
 
-    PhysicsSystem_t phy_sys {  };
-    phy_sys.Update(EntMan);
-    std::cout << "Done...!" << std::endl;
+    const
+    RenderSystem_t   ren_sys { 640, 480, "Game"  };
+    PhysicsSystem_t  phy_sys {  };
+    InputSystem_t    inp_sys {  };
+    ColliderSystem_t col_sys { 640, 480 };
+    SpawnSystem_t    spw_sys {  };
+
+    ren_sys.ToggleDebugRender();
+
+    GameFactory_t go_fact { ent_man };
+
+    go_fact.CreatePlayer(640, 480);
+    go_fact.CreateSpawner(50, 50,
+            [&go_fact](int x, int y) {
+                    go_fact.CreateBlade(x, y);
+            });
+    go_fact.CreateRandomBlade(640, 480);
+    go_fact.CreateRandomBlade(640, 480);
+
+    while (ren_sys.Update(ent_man)) {
+        spw_sys.Update(ent_man);
+        phy_sys.Update(ent_man);
+        col_sys.Update(ent_man);
+        inp_sys.Update(ent_man);
+    }
+
     return 0;
 }
