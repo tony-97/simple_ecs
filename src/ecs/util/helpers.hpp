@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ecs/util/type_aliases.hpp"
 #include <functional>
 #include <tuple>
 #include <type_traits>
@@ -150,5 +151,11 @@ public:
     };
 
 };
+
+template<class... Args_t>
+Elements_t<Args_t...> MakeArgs(Args_t&&... args)
+{
+    return Elements_t<Args_t...>(std::forward<Args_t>(args)...);
+}
 
 } // namespace ECS

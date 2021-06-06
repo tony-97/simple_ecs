@@ -13,7 +13,7 @@ export LDFLAGS   := $(call RAYLIB_MAKEFILE,ldflags)
 export LDLIBS    := $(call RAYLIB_MAKEFILE,ldlibs)
 export CPPFLAGS  := $(call RAYLIB_MAKEFILE,includes) -I./src
 export EXEC_NAME ?= game
-export CXXFLAGS  += -std=c++17
+export CXXFLAGS  += -std=c++17 -flto -fno-rtti -fno-exceptions
 export MKDIR     := mkdir -p
 
 BUILD_DIR := build
@@ -59,4 +59,5 @@ clean:
 	$(MAKE) -f Makefile.gen clean
 
 cleanall:
+	$(RM) -R $(BUILD_DIR)
 	$(MAKE) -f Makefile.gen cleanall

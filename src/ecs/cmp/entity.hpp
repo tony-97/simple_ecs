@@ -5,6 +5,7 @@
 
 #include <ecs/util/type_aliases.hpp>
 #include <ecs/util/helpers.hpp>
+#include <utility>
 
 namespace ECS
 {
@@ -26,7 +27,6 @@ protected:
 
         auto ite = m_Comps.find(cmp_tp_id);
         if (ite != m_Comps.cend()) {
-            //cmp_id.value() = ite->second;
             cmp_id.emplace(ite->second);
         }
 
@@ -55,6 +55,19 @@ protected:
               (this)->GetRequiredComponentID(cmp_tp_id);
     }
 
+    auto UpdateComponentID(ComponentTypeID_t cmp_tp_id, ComponentID_t cmp_id)
+    -> void
+    {
+        m_Comps[cmp_tp_id] = cmp_id;
+    }
+
+    decltype(auto) begin()        { return m_Comps.begin(); }
+    decltype(auto) begin()  const { return m_Comps.begin(); }
+    decltype(auto) cbegin() const { return m_Comps.cbegin(); }
+    decltype(auto) end()          { return m_Comps.end(); }
+    decltype(auto) end()    const { return m_Comps.end(); }
+    decltype(auto) cend()   const { return m_Comps.cend(); }
+
 private:
     std::unordered_map<ComponentTypeID_t, ComponentID_t> m_Comps {  };
 };
@@ -65,13 +78,15 @@ struct Entity_t final : public EntityBase_t,
 {
     friend EntMan_t;
 
-    constexpr
+    explicit constexpr
     Entity_t(Entity_t<EntMan_t>&& ent_temp)
         : EntityBase_t { std::move(ent_temp) },
-          m_ID { ent_temp.m_ID }
-    {
+          m_ID { ent_temp.m_ID } {  }
 
-    };
+    constexpr auto GetEntityID() const -> EntityID_t
+    {
+        return m_ID;
+    }
 
     constexpr auto GetEntityID() -> EntityID_t
     {
@@ -82,7 +97,15 @@ private:
 
     explicit constexpr Entity_t(EntityID_t ent_id) : m_ID { ent_id } {  };
 
-    const EntityID_t m_ID {  };
+    constexpr
+    auto operator=(const Entity_t<EntMan_t>& other)
+    -> Entity_t&
+    {
+        EntityBase_t::operator=(std::move(other));
+        return *this;
+    }
+
+    EntityID_t m_ID {  };
 };
 
 } // namespace ECS

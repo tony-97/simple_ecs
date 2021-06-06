@@ -10,6 +10,7 @@ int main()
                          RenderComponent_t,
                          InputComponent_t,
                          ColliderComponent_t,
+                         HealthComponent_t,
                          SpawnComponent_t> ent_man {  };
 
     const
@@ -17,6 +18,7 @@ int main()
     PhysicsSystem_t  phy_sys {  };
     InputSystem_t    inp_sys {  };
     ColliderSystem_t col_sys { 640, 480 };
+    HealthSystem_t   hel_sys {  };
     SpawnSystem_t    spw_sys {  };
 
     ren_sys.ToggleDebugRender();
@@ -35,6 +37,7 @@ int main()
         spw_sys.Update(ent_man);
         phy_sys.Update(ent_man);
         col_sys.Update(ent_man);
+        hel_sys.Update(ent_man);
         inp_sys.Update(ent_man);
     }
 

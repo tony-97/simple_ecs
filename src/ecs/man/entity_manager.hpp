@@ -1,8 +1,10 @@
 #pragma once
 
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
+#include <queue>
 
 #include "component_storage.hpp"
 
@@ -11,7 +13,7 @@
 #include <ecs/cmp/entity.hpp>
 #include <tmp/type_list.hpp>
 
-//TODO create unique types for ComponentTypeID ComponentID EntityID_t
+//TODO create unique types for ComponentTypeID, ComponentID, EntityID_t
 /*TODO for enhanced loop
  * iterator tat returns a tuple with components 
  */
@@ -30,13 +32,13 @@ struct ComponentExtractorHelper_t
         ent_man.template
         DoForEachComponentTypeIMPL<MainComponent_t,
                                    ExtraComponents_t...>
-                                   (ent_man,
+                                   (std::forward<EntManager_t>(ent_man),
                                     std::forward<Callable_t>(callable));
     }
 };
 
 template<class... Components_t>
-class EntityManager_t final
+class EntityManager_t
 {
 
 public:
@@ -54,14 +56,14 @@ public:
 
     auto CreateEntity() -> OwnEntity_t&
     {
-        const auto ent_id { m_Entities.size() };
-        m_Entities.push_back(OwnEntity_t{ ent_id });
-        return m_Entities.back();
+        const auto ent_id { mEntities.size() };
+        mEntities.push_back(OwnEntity_t{ ent_id });
+        return mEntities.back();
     }
 
     auto GetEntities() const -> const VecEntity_t&
     {
-        return m_Entities;
+        return mEntities;
     }
 
     auto GetEntities() -> VecEntity_t&
@@ -71,7 +73,7 @@ public:
 
     auto GetEntityByID(EntityID_t ent_id) const -> const OwnEntity_t&
     {
-        return GetEntities()[ent_id];
+        return GetEntities()[static_cast<std::size_t>(ent_id)];
     }
 
     auto GetEntityByID(EntityID_t ent_id) -> OwnEntity_t&
@@ -81,18 +83,52 @@ public:
                                   ent_id);
     }
 
-    template<typename InternalComponent_t>
     constexpr auto
-    GetEntityByComponent(InternalComponent_t&& in_cmp)
-    -> OwnEntity_t&
+    RemoveComponentsFromEntity(OwnEntity_t& e) -> void
     {
-        return GetEntityByID(in_cmp.EntityID);
+        for (auto& [cmp_tp_id, cmp_id] : e) {
+            auto eid { mComponents.RemoveComponentByTypeIDAndID(cmp_tp_id,
+                                                                cmp_id) };
+            auto& ent_upd { GetEntityByID(eid) };
+            ent_upd.UpdateComponentID(cmp_tp_id, cmp_id);
+        }
+    }
+
+    constexpr auto
+    UpdateComponentsEntityIDFromEntity(OwnEntity_t& ent, EntityID_t new_id)
+    -> void
+    {
+        for (auto& [cmp_tp_id, cmp_id] : ent) {
+            mComponents.SetComponentEntityID(cmp_tp_id,
+                                             cmp_id,
+                                             new_id);
+        }
+    }
+
+    //TODO: add markedAsDead for prevent the last_entity don't being updated
+    constexpr auto
+    RemoveEntity(const OwnEntity_t& e) -> void
+    {
+        auto& ent { GetEntityByID(e.GetEntityID()) };
+        auto& last_entity { GetEntities().back() };
+        RemoveComponentsFromEntity(ent);
+        UpdateComponentsEntityIDFromEntity(last_entity, e.GetEntityID());
+        ent = last_entity;
+        GetEntities().pop_back();
     }
 
     template<typename InternalComponent_t>
     constexpr auto
     GetEntityByComponent(InternalComponent_t&& in_cmp) const
     -> const OwnEntity_t&
+    {
+        return GetEntityByID(in_cmp.EntityID);
+    }
+
+    template<typename InternalComponent_t>
+    constexpr auto
+    GetEntityByComponent(InternalComponent_t&& in_cmp)
+    -> OwnEntity_t&
     {
         return SameAsConstMemFunc(this,
                                   &EntityManager_t::template
@@ -105,7 +141,7 @@ public:
     GetRequieredComponentStorage() const
     -> const VecComponent_t<RemovePCR<ReqCmp_t>>&
     {
-        return m_Components.template
+        return mComponents.template
                GetRequieredComponentStorage<RemovePCR<ReqCmp_t>>();
     }
 
@@ -122,14 +158,31 @@ public:
                );
     }
 
+    template<class ID_Cmp_t>
+    constexpr auto
+    AttachComponentToEntity(OwnEntity_t& ent,
+                            ID_Cmp_t id_cmp)
+    -> typename ID_Cmp_t::second_type&
+    {
+        auto [cmp_id, cmp] { id_cmp };
+        const auto cmp_tp_id
+        {
+            mComponents.template
+            GetRequiredComponentTypeID<typename ID_Cmp_t::second_type>()
+        };
+        ent.AttachComponentID(cmp_tp_id, cmp_id);
+        return cmp;
+    }
+
+    //FIXME: What happens when the entity already has the ReqCmp_t component
     template<typename ReqCmp_t, typename ...Args_t>
     constexpr
     auto CreateRequieredComponent(OwnEntity_t& ent, Args_t&& ...args)
     -> ReqCmp_t&
     {
-        auto [cmp_id, cmp]
+        auto id_cmp
         {
-            m_Components.template
+            mComponents.template
             CreateRequieredComponent<ReqCmp_t>
             (
              ent.GetEntityID(),
@@ -137,14 +190,49 @@ public:
             )
         };
 
-        const auto cmp_tp_id
+        return AttachComponentToEntity(ent, id_cmp);
+    }
+
+    template<class... ReqCmps_t,
+             class TupleCmps_t,
+             std::size_t... I>
+    constexpr auto
+    CreateRequieredComponentsIMPL(OwnEntity_t& ent,
+                                  TupleCmps_t&& cmps,
+                                  std::index_sequence<I...>)
+    -> Elements_t<ReqCmps_t&...>
+    {
+        return
         {
-            m_Components.template GetRequiredComponentTypeID<ReqCmp_t>()
+            AttachComponentToEntity
+            (
+             ent,
+             std::get<I>(std::forward<TupleCmps_t>(cmps))
+            )...
+        };
+    }
+
+    template<class... ReqCmps_t, class... TupleArgs_t>
+    constexpr auto
+    CreateRequieredComponents(OwnEntity_t& ent, TupleArgs_t&&... args)
+    -> Elements_t<ReqCmps_t&...>
+    {
+        auto cmps
+        {
+            mComponents.template
+            CreateRequieredComponents<ReqCmps_t...>
+            (
+             ent.GetEntityID(),
+             std::forward<TupleArgs_t>(args)...
+            )
         };
 
-        ent.AttachComponentID(cmp_tp_id, cmp_id);
-
-        return cmp;
+        constexpr auto indexes
+        {
+            std::make_index_sequence<std::tuple_size_v
+                                    <std::remove_reference_t<decltype(cmps)>>>{}
+        };
+        return CreateRequieredComponentsIMPL<ReqCmps_t...>(ent, cmps, indexes);
     }
 
     template<typename ReqCmp_t>
@@ -154,7 +242,7 @@ public:
     {
         const auto cmp_tp_id
         {
-            m_Components.template GetRequiredComponentTypeID<ReqCmp_t>()
+            mComponents.template GetRequiredComponentTypeID<ReqCmp_t>()
         };
 
         const auto cmp_id
@@ -166,7 +254,7 @@ public:
         if (cmp_id) {
             auto& cmp
             {
-                m_Components.template
+                mComponents.template
                 GetRequieredComponentByID<ReqCmp_t>(*cmp_id)
             };
             optional_cmp.emplace(cmp);
@@ -211,7 +299,7 @@ public:
     {
         const auto cmp_tp_id
         {
-            m_Components.template GetRequiredComponentTypeID<ReqCmp_t>()
+            mComponents.template GetRequiredComponentTypeID<ReqCmp_t>()
         };
 
         const auto cmp_id
@@ -219,7 +307,7 @@ public:
             ent.GetRequiredComponentID(cmp_tp_id)
         };
 
-        return m_Components.template
+        return mComponents.template
                GetRequieredComponentByID<ReqCmp_t>(cmp_id);
     }
 
@@ -344,8 +432,9 @@ public:
 
 private:
 
-    Storage_t<OwnEntity_t> m_Entities {  };
-    ComponentStorage_t<Self_t> m_Components {  };
+    Storage_t<OwnEntity_t> mEntities {  };
+    ComponentStorage_t<Self_t> mComponents {  };
+    //std::queue<EntityID> mDeadEntities {  };
 };
 
 } // namespace ECS

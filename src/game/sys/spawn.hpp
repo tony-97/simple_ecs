@@ -18,7 +18,7 @@ struct SpawnSystem_t : SystemBase_t<SpawnComponent_t, PhysicsComponent_t>
 
         auto now { steady_clock::now() };
         ent_man.template DoForEachComponentType<SystemSignature_t>(
-                [&now, &ent_man, this](SpawnComponent_t& spw,
+                [&now](SpawnComponent_t& spw,
                                        const PhysicsComponent_t& phy,
                                        auto&){
                     auto passed { now - spw.last_spawn_time };
