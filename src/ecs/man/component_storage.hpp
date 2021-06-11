@@ -156,15 +156,26 @@ public:
     CreateRequieredComponents(EntityID_t eid, TupleArgs_t&&... args)
     -> Elements_t<Combine_t<ComponentID_t, ReqCmps_t&>...>
     {
-        return
+        if constexpr (sizeof...(TupleArgs_t) < sizeof...(ReqCmps_t))
         {
-            CreateRequieredComponentFromArgs<ReqCmps_t>
-            (
-             std::piecewise_construct,
-             eid,
-             std::forward<TupleArgs_t>(args)
-            )...
-        };
+            constexpr auto diff {sizeof...(ReqCmps_t) - sizeof...(TupleArgs_t)};
+            constexpr auto empty_args { MakeEmptyArgs(std::make_index_sequence<diff>{}) };
+            constexpr auto tuple_args { MakeArgs(std::forward<TupleArgs_t>(args)...) };
+            auto eid_arg { MakeArgs(eid) };
+            constexpr auto cat_args { std::tuple_cat(eid_arg, tuple_args, empty_args) };
+
+            return std::apply(&ComponentStorage_t::CreateRequieredComponents<ReqCmps_t...>, this, cat_args);
+        } else {
+            return
+            {
+                CreateRequieredComponentFromArgs<ReqCmps_t>
+                (
+                 std::piecewise_construct,
+                 eid,
+                 std::forward<TupleArgs_t>(args)
+                )...
+            };
+        }
     }
 
     constexpr auto

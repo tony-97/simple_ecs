@@ -12,5 +12,3 @@ struct SpawnComponent_t
     std::chrono::duration<float> spawn_interval { std::chrono::seconds { 5 } };
     unsigned to_be_spawned { 2 }; 
 };
-
-

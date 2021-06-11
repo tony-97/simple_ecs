@@ -13,6 +13,7 @@
 #include <ecs/cmp/entity.hpp>
 #include <tmp/type_list.hpp>
 
+//TODO vector of entities for systems
 //TODO create unique types for ComponentTypeID, ComponentID, EntityID_t
 /*TODO for enhanced loop
  * iterator tat returns a tuple with components 
@@ -324,7 +325,7 @@ public:
                                   GetRequieredComponent<ReqCmp_t>,
                                   ent);
     }
-
+    //TODO: add support for Nullable_t
     template<typename ...ReqCmp_t>
     constexpr auto
     GetRequieredComponents([[maybe_unused]]const OwnEntity_t& ent) const

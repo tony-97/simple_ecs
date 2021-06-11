@@ -152,10 +152,21 @@ public:
 
 };
 
+///////////////////////////////////////////////////////////////////////////////
+// Args_t
+///////////////////////////////////////////////////////////////////////////////
+
 template<class... Args_t>
 Elements_t<Args_t...> MakeArgs(Args_t&&... args)
 {
     return Elements_t<Args_t...>(std::forward<Args_t>(args)...);
+}
+
+template<std::size_t... Is>
+constexpr auto
+MakeEmptyArgs(const std::index_sequence<Is...>&)
+{
+    return Elements_t{ ((void)Is, Elements_t<>{})... };
 }
 
 } // namespace ECS

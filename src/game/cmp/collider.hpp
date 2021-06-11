@@ -20,8 +20,14 @@ struct BoundingBoxNode_t
 
 struct ColliderComponent_t
 {
+    enum
+    {
+        LNONE     = 0X0,
+        LBLADES   = 0x1,
+        LPLATFORM = 0x2,
+        LALL      = 0xFF
+    };
+
     BoundingBoxNode_t BoxRoot {  };
-    std::uint8_t mask { 0XFF };
+    std::uint8_t mask { LALL };
 };
-
-

@@ -29,8 +29,8 @@ public:
         const Vector2 pos { static_cast<float>(phy.pos.x),
                             static_cast<float>(phy.pos.y) };
 
-        const float wh { static_cast<float>(ren.sprite.width) };
-        const float hg { static_cast<float>(ren.sprite.height) };
+        const float wh { static_cast<float>(ren.sprite.get().width) };
+        const float hg { static_cast<float>(ren.sprite.get().height) };
         const Rectangle rec_src  { 0, 0, wh, hg };
         const Rectangle rec_dest { pos.x, pos.y, ren.wh.x, ren.wh.y };
         const Vector2 ori_vec { 0, 0 };

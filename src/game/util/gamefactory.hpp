@@ -74,7 +74,7 @@ struct GameFactory_t
                                       ColliderComponent_t>
             (ent, phy_args, spw_args, col_args)
         };
-        col.mask = 0X0;
+        col.mask = ColliderComponent_t::LNONE;
 
         return ent;
     }
@@ -82,20 +82,55 @@ struct GameFactory_t
     decltype(auto) CreateBlade(int px, int py)
     {
         static Texture2D blade  { LoadTexture("assets/blade.png") };
-        return CreateEntity(blade, px, py, 7.0f);
+        auto& ent { CreateEntity(blade, px, py, 7.0f) };
+        auto& col
+        {
+            m_EntMan.template
+            GetRequieredComponent<ColliderComponent_t>(ent)
+        };
+        col.mask = ColliderComponent_t::LBLADES;
+        return ent;
     }
 
     decltype(auto) CreateRandomBlade(int wh, int hg)
     {
         static Texture2D blade  { LoadTexture("assets/blade.png") };
-        return CreateRandomEntity(blade, wh, hg, 7.0f);
+        auto& ent { CreateRandomEntity(blade, wh, hg, 7.0f) };
+        auto& col
+        {
+            m_EntMan.template
+            GetRequieredComponent<ColliderComponent_t>(ent)
+        };
+        col.mask = ColliderComponent_t::LBLADES;
+        return ent;
     }
 
-   // decltype(auto) CreatePlatform(int x, int y)
-   // {
-   //     static Texture2D platform { LoadTexture("assets/platform.png") };
+    decltype(auto) CreatePlatform(int x, int y, float sz = 1.0f)
+    {
+        static Texture2D platform { LoadTexture("assets/platform.png") };
 
-   // }
+        auto& ent { m_EntMan.CreateEntity() };
+
+        auto ren_args { ECS::MakeArgs(platform, sz) };
+        auto phy_args { ECS::MakeArgs(VecInt{x, y}, VecInt{  }) };
+        auto col_args { ECS::MakeArgs() };
+        auto [ren, phy, col]
+        {
+            m_EntMan.template
+            CreateRequieredComponents<RenderComponent_t,
+                                      PhysicsComponent_t,
+                                      ColliderComponent_t>
+            (ent, ren_args, phy_args, col_args)
+        };
+        col.mask = ColliderComponent_t::LPLATFORM;
+
+        col.BoxRoot.box.xRight = ren.wh.x;
+        col.BoxRoot.box.xLeft  = 0;
+        col.BoxRoot.box.yUp    = 0;
+        col.BoxRoot.box.yDown  = ren.wh.y;
+
+        return ent;
+    }
 
     decltype(auto) CreatePlayer(int wh, int hg, float sz = 5.0f)
     {
@@ -118,7 +153,7 @@ struct GameFactory_t
 
         hel.health = 255u;
 
-        col.mask = 0X0;
+        col.mask = ColliderComponent_t::LALL;
         col.BoxRoot.root = { {
                                {
                                    { {}, BoxFromSize(140, 355, 20 , 90, sz) },

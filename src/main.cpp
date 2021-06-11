@@ -25,13 +25,14 @@ int main()
 
     GameFactory_t go_fact { ent_man };
 
-    go_fact.CreatePlayer(640, 480);
     go_fact.CreateSpawner(50, 50,
             [&go_fact](int x, int y) {
                     go_fact.CreateBlade(x, y);
             });
     go_fact.CreateRandomBlade(640, 480);
     go_fact.CreateRandomBlade(640, 480);
+    go_fact.CreatePlatform(500, 400);
+    go_fact.CreatePlayer(640, 480);
 
     while (ren_sys.Update(ent_man)) {
         spw_sys.Update(ent_man);
