@@ -1,111 +1,105 @@
 #pragma once
 
-#include <unordered_map>
-#include <cassert>
+#include <tuple>
 
 #include <ecs/util/type_aliases.hpp>
 #include <ecs/util/helpers.hpp>
+
+#include <tmp/type_list.hpp>
 #include <utility>
 
 namespace ECS
 {
+template<class Signature_t>
+struct ExtractComponentsFromSystems;
 
-struct EntityBase_t
+template<template<class...> class Signature_t, class... Systems_t>
+struct ExtractComponentsFromSystems<Signature_t<Systems_t...>>
 {
-protected:
-
-    auto AttachComponentID(ComponentTypeID_t cmp_tp_id,
-                           ComponentID_t cmp_id) -> void
-    {
-        m_Comps[cmp_tp_id] = cmp_id;
-    }
-
-    auto FindRequiredComponentID(ComponentTypeID_t cmp_tp_id) const
-    -> Optional_t<ComponentID_t>
-    {
-        Optional_t<ComponentID_t> cmp_id {  };
-
-        auto ite = m_Comps.find(cmp_tp_id);
-        if (ite != m_Comps.cend()) {
-            cmp_id.emplace(ite->second);
-        }
-
-        return cmp_id;
-    }
-
-    auto FindRequiredComponentID(ComponentTypeID_t cmp_tp_id)
-    -> Optional_t<ComponentID_t>
-    {
-        return const_cast<const EntityBase_t*>
-               (this)->FindRequiredComponentID(cmp_tp_id);
-    }
-
-    auto GetRequiredComponentID(ComponentTypeID_t cmp_tp_id) const
-    -> ComponentID_t
-    {
-        assert_msg(FindRequiredComponentID(cmp_tp_id), "The entity doesn't"
-                                                       " have the component");
-        return const_cast<EntityBase_t*>(this)->m_Comps[cmp_tp_id];
-    }
-
-    auto GetRequiredComponentID(ComponentTypeID_t cmp_tp_id)
-    -> ComponentID_t
-    {
-        return const_cast<const EntityBase_t*>
-              (this)->GetRequiredComponentID(cmp_tp_id);
-    }
-
-    auto UpdateComponentID(ComponentTypeID_t cmp_tp_id, ComponentID_t cmp_id)
-    -> void
-    {
-        m_Comps[cmp_tp_id] = cmp_id;
-    }
-
-    decltype(auto) begin()        { return m_Comps.begin(); }
-    decltype(auto) begin()  const { return m_Comps.begin(); }
-    decltype(auto) cbegin() const { return m_Comps.cbegin(); }
-    decltype(auto) end()          { return m_Comps.end(); }
-    decltype(auto) end()    const { return m_Comps.end(); }
-    decltype(auto) cend()   const { return m_Comps.cend(); }
-
-private:
-    std::unordered_map<ComponentTypeID_t, ComponentID_t> m_Comps {  };
+    using type = TMP::UniqueTypeList_t<
+                 TMP::TypeListCat_t<typename Systems_t::SystemSignature_t...>>;
 };
 
-template<class EntMan_t>
-struct Entity_t final : public EntityBase_t,
-                               Uncopyable_t
+template<class Signature_t>
+using ExtractComponentsFromSystems_t =
+typename ExtractComponentsFromSystems<Signature_t>::type;
+
+template<class EntitySignature_t>
+struct ElementsOfComponentIDs;
+
+template<template<class...> class EntitySignature_t, class... Components_t>
+struct ElementsOfComponentIDs<EntitySignature_t<Components_t...>>
 {
-    friend EntMan_t;
+    using type = std::tuple<ComponentID_t<Components_t>...>;
+};
 
-    explicit constexpr
-    Entity_t(Entity_t<EntMan_t>&& ent_temp)
-        : EntityBase_t { std::move(ent_temp) },
-          m_ID { ent_temp.m_ID } {  }
+template<class EntitySignature_t>
+using ElementsOfComponentIDs_t =
+typename ElementsOfComponentIDs<EntitySignature_t>::type;
 
-    constexpr auto GetEntityID() const -> EntityID_t
+template<class Components_t>
+struct EntityBase_t
+{
+    using TableOfComponentIDs_t = ElementsOfComponentIDs_t<Components_t>;
+protected:
+
+    template<class... ComponentIDs_t>
+    explicit constexpr EntityBase_t(ComponentIDs_t&&... cmp_ids)
+    : mCompIDs{ std::forward<ComponentIDs_t>(cmp_ids)... } {  }
+
+    template<class ReqCmp_t>
+    auto GetRequiredComponentID() const
+    -> ComponentID_t<ReqCmp_t>
     {
-        return m_ID;
+        return std::get<ComponentID_t<ReqCmp_t>>(mCompIDs);
     }
 
-    constexpr auto GetEntityID() -> EntityID_t
+    template<class ReqCmp_t>
+    auto GetRequiredComponentID(ComponentTypeID_t cmp_tp_id)
+    -> ComponentID_t<ReqCmp_t>
     {
-        return m_ID;
+        return const_cast<const EntityBase_t*>
+               (this)->GetRequiredComponentID(cmp_tp_id);
+    }
+
+    template<class ReqCmpID_t>
+    auto UpdateRequieredComponentID(ReqCmpID_t cmp_id)
+    -> void
+    {
+        std::get<ReqCmpID_t>(mCompIDs) = std::move(cmp_id);
+    }
+
+    template<class Callable_t>
+    constexpr auto
+    ForEachComponentID(Callable_t&& callable)
+    {
+        ForEachElement(mCompIDs, std::forward(callable));
     }
 
 private:
+    TableOfComponentIDs_t mCompIDs {  };
+};
 
-    explicit constexpr Entity_t(EntityID_t ent_id) : m_ID { ent_id } {  };
+template<class EntMan_t, class Systems_t>
+struct Entity_t : EntityBase_t<ExtractComponentsFromSystems_t<Systems_t>>,
+                  Uncopyable_t
+{
+    friend EntMan_t;
+    using Base_t = EntityBase_t<ExtractComponentsFromSystems_t<Systems_t>>;
 
-    constexpr
-    auto operator=(const Entity_t<EntMan_t>& other)
-    -> Entity_t&
+private:
+
+    template<class... ComponentIDs_t>
+    explicit constexpr Entity_t(EntityID_t eid, ComponentIDs_t&&... cmp_ids)
+    : Base_t{ std::forward<ComponentIDs_t>(cmp_ids)... }, mID{ eid } {  }
+
+    Entity_t& operator=(const Entity_t& other)
     {
-        EntityBase_t::operator=(std::move(other));
+        Base_t::operator=(std::move(other));
         return *this;
     }
 
-    EntityID_t m_ID {  };
+    std::size_t mID{  };
 };
 
 } // namespace ECS

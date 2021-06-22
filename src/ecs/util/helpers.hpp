@@ -8,7 +8,6 @@
 
 namespace ECS
 {
-
 // assert with a mensage from cppreference
 #define assert_msg(exp, msg) assert(((void)(msg), (exp)))
 
@@ -167,6 +166,19 @@ constexpr auto
 MakeEmptyArgs(const std::index_sequence<Is...>&)
 {
     return Elements_t{ ((void)Is, Elements_t<>{})... };
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Iterate over tuple
+///////////////////////////////////////////////////////////////////////////////
+template<std::size_t I = 0, class Elements_t, class Callable_t>
+constexpr auto
+ForEachElement(Elements_t&& elems, Callable_t&& callable) -> void
+{
+    if constexpr (I < std::tuple_size<Elements_t>()) {
+        callable(std::get<I>(std::forward(elems)));
+        ForEachElement<I + 1>(std::forward(elems), std::forward(callable));    
+    }
 }
 
 } // namespace ECS

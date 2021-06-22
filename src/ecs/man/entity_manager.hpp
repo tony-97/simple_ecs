@@ -15,6 +15,7 @@
 
 //TODO vector of entities for systems
 //TODO create unique types for ComponentTypeID, ComponentID, EntityID_t
+//TODO Sort when destroy a entity
 /*TODO for enhanced loop
  * iterator tat returns a tuple with components 
  */
@@ -37,99 +38,113 @@ struct ComponentExtractorHelper_t
                                     std::forward<Callable_t>(callable));
     }
 };
-
-template<class... Components_t>
+//TODO: Use friend entitybase instead
+template<class... EntitiesSignature_t>
 class EntityManager_t
 {
-
 public:
 
-    using Self_t = EntityManager_t<Components_t...>;
-    using SelfComponentStorage_t = ComponentStorage_t<Self_t>;
-    using OwnEntity_t = Entity_t<Self_t>;
-    using VecEntity_t = Storage_t<OwnEntity_t>;
+    using Self_t = EntityManager_t<EntitiesSignature_t...>;
 
-    template<class T>
-    using VecComponent_t = typename SelfComponentStorage_t::
-                           template VecComponent_t<T>;
+    template<class Systems_t>
+    using OwnEntity_t = Entity_t<Self_t, Systems_t>;
+
+    template<class EntitySignature_t>
+    using VecEntity_t = Storage_t<OwnEntity_t<EntitySignature_t>>;
+    using TableOfEntitites = Elements_t<VecEntity_t<EntitiesSignature_t>...>;
 
     constexpr explicit EntityManager_t() = default;
-
-    auto CreateEntity() -> OwnEntity_t&
+    //WIP
+    template<class... Systems>
+    auto CreateRequieredEntity() -> OwnEntity_t<TMP::TypeList_t<Systems...>>&
     {
         const auto ent_id { mEntities.size() };
         mEntities.push_back(OwnEntity_t{ ent_id });
         return mEntities.back();
     }
 
-    auto GetEntities() const -> const VecEntity_t&
+    template<class EntitySignature_t>
+    constexpr auto
+    GetRequieredEntities() const
+    -> const VecEntity_t<EntitySignature_t>&
     {
-        return mEntities;
+        return std::get<VecEntity_t<EntitySignature_t>>(mEntities);
     }
 
-    auto GetEntities() -> VecEntity_t&
+    template<class EntitySignature_t>
+    constexpr auto
+    GetRequieredEntities()
+    -> VecEntity_t<EntitySignature_t>&
     {
-        return SameAsConstMemFunc(this, &EntityManager_t::GetEntities);
+        return SameAsConstMemFunc(this, &EntityManager_t::GetRequieredEntities);
     }
 
-    auto GetEntityByID(EntityID_t ent_id) const -> const OwnEntity_t&
+    template<class EntitySignature_t>
+    constexpr auto
+    GetEntityByID(EntityID_t ent_id) const
+    -> const OwnEntity_t<EntitySignature_t>&
     {
-        return GetEntities()[static_cast<std::size_t>(ent_id)];
+        return GetRequieredEntities<EntitySignature_t>()[ent_id];
     }
 
-    auto GetEntityByID(EntityID_t ent_id) -> OwnEntity_t&
+    template<class EntitySignature_t>
+    auto GetEntityByID(EntityID_t ent_id)
+    -> OwnEntity_t<EntitySignature_t>&
     {
         return SameAsConstMemFunc(this,
                                   &EntityManager_t::GetEntityByID,
                                   ent_id);
     }
 
+    template<class EntitySignature_t>
     constexpr auto
-    RemoveComponentsFromEntity(OwnEntity_t& e) -> void
+    RemoveEntityComponents(OwnEntity_t<EntitySignature_t>& e) -> void
     {
-        for (auto& [cmp_tp_id, cmp_id] : e) {
-            auto eid { mComponents.RemoveComponentByTypeIDAndID(cmp_tp_id,
-                                                                cmp_id) };
-            auto& ent_upd { GetEntityByID(eid) };
-            ent_upd.UpdateComponentID(cmp_tp_id, cmp_id);
-        }
+        e.ForEachComponentID(
+        [](auto&& cmp_id){
+            auto eid { mComponents.RemoveRequieredComponent(cmp_id) };
+            auto& ent_upd { GetEntityByID<EntitySignature_t>(eid) };
+            ent_upd.UpdateRequieredComponentID(cmp_id)
+        });
     }
 
+    template<class EntitySignature_t>
     constexpr auto
-    UpdateComponentsEntityIDFromEntity(OwnEntity_t& ent, EntityID_t new_id)
+    UpdateEntityComponentsEntityID(OwnEntity_t<EntitySignature_t>& ent,
+                                   EntityID_t new_eid)
     -> void
     {
-        for (auto& [cmp_tp_id, cmp_id] : ent) {
-            mComponents.SetComponentEntityID(cmp_tp_id,
-                                             cmp_id,
-                                             new_id);
-        }
+        ent.ForEachComponentID(
+        [&new_id](auto&& cmp_id){
+            mComponents.SetComponentEntityID(std::forward(cmp_id), new_eid);
+        });
     }
 
     //TODO: add markedAsDead for prevent the last_entity don't being updated
+    template<class EntitySignature_t>
     constexpr auto
-    RemoveEntity(const OwnEntity_t& e) -> void
+    RemoveEntity(const OwnEntity_t<EntitySignature_t>& e) -> void
     {
         auto& ent { GetEntityByID(e.GetEntityID()) };
-        auto& last_entity { GetEntities().back() };
-        RemoveComponentsFromEntity(ent);
-        UpdateComponentsEntityIDFromEntity(last_entity, e.GetEntityID());
-        ent = last_entity;
-        GetEntities().pop_back();
+        auto& last_entity { GetRequieredEntities<EntitySignature_t>().back() };
+        RemoveEntityComponents(ent);
+        UpdateEntityComponentsEntityID(last_entity, e.GetEntityID());
+        ent = std::move(last_entity);
+        GetRequieredEntities<EntitySignature_t>().pop_back();
     }
 
-    template<typename InternalComponent_t>
+    template<class EntitySignature_t, class InternalComponent_t>
     constexpr auto
     GetEntityByComponent(InternalComponent_t&& in_cmp) const
-    -> const OwnEntity_t&
+    -> const OwnEntity_t<EntitySignature_t>&
     {
         return GetEntityByID(in_cmp.EntityID);
     }
 
-    template<typename InternalComponent_t>
+    template<class EntitySignature_t, class InternalComponent_t>
     constexpr auto
     GetEntityByComponent(InternalComponent_t&& in_cmp)
-    -> OwnEntity_t&
+    -> OwnEntity_t<EntitySignature_t>&
     {
         return SameAsConstMemFunc(this,
                                   &EntityManager_t::template
@@ -176,8 +191,6 @@ public:
     }
 
     //FIXME: What happens when the entity already has the ReqCmp_t component
-    template<typename ReqCmp_t, typename ...Args_t>
-    constexpr
     auto CreateRequieredComponent(OwnEntity_t& ent, Args_t&& ...args)
     -> ReqCmp_t&
     {
@@ -433,7 +446,7 @@ public:
 
 private:
 
-    Storage_t<OwnEntity_t> mEntities {  };
+    TableOfEntitites mEntities {  };
     ComponentStorage_t<Self_t> mComponents {  };
     //std::queue<EntityID> mDeadEntities {  };
 };
