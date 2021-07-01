@@ -3,15 +3,16 @@
 #include <ecs/man/entity_manager.hpp>
 
 #include <game/util/gamefactory.hpp>
+#include <type_traits>
 
 int main()
 {
-    ECS::EntityManager_t<PhysicsComponent_t,
-                         RenderComponent_t,
-                         InputComponent_t,
-                         ColliderComponent_t,
-                         HealthComponent_t,
-                         SpawnComponent_t> ent_man {  };
+    ECS::EntityManager_t<PhysicsSystem_t,
+                         RenderSystem_t,
+                         InputSystem_t,
+                         ColliderSystem_t,
+                         HealthSystem_t,
+                         SpawnSystem_t> ent_man {  };
 
     const
     RenderSystem_t   ren_sys { 640, 480, "Game"  };

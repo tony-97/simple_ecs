@@ -8,8 +8,8 @@
 
 #include <raylib.h>
 
-class RenderSystem_t : SystemBase_t<RenderComponent_t,
-                                    PhysicsComponent_t>
+class RenderSystem_t : public SystemBase_t<RenderComponent_t,
+                                           PhysicsComponent_t>
 {
 public:
     RenderSystem_t(unsigned wh, unsigned hg, const char* name)

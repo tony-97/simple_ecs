@@ -54,8 +54,8 @@ struct VectorComponent_t final : public ComponentVectorBase_t
 
 template<class EntMan_t> class ComponentStorage_t;
 
-template<template<class...> class EntMan_t,  class... Components_t>
-class ComponentStorage_t<EntMan_t<Components_t...>> final : Uncopyable_t
+template<template<class...> class ComponentTypes_t,  class... Components_t>
+class ComponentStorage_t<ComponentTypes_t<Components_t...>> final : Uncopyable_t
 {
 
 public:
@@ -63,8 +63,8 @@ public:
     template<class EntID_t, class Component_t>
     struct InternalComponent_t final
     {
-        friend ComponentStorage_t<EntMan_t<Components_t...>>;
-        friend EntMan_t<Components_t...>;
+        friend ComponentStorage_t<ComponentTypes_t<Components_t...>>;
+        //friend EntMan_t<Components_t...>;
 
         using EntityID_type  = EntID_t;
         using Component_type = Component_t;
@@ -159,9 +159,15 @@ public:
         if constexpr (sizeof...(TupleArgs_t) < sizeof...(ReqCmps_t))
         {
             constexpr auto diff {sizeof...(ReqCmps_t) - sizeof...(TupleArgs_t)};
-            constexpr auto empty_args { MakeEmptyArgs(std::make_index_sequence<diff>{}) };
-            constexpr auto tuple_args { MakeArgs(std::forward<TupleArgs_t>(args)...) };
-            auto eid_arg { MakeArgs(eid) };
+            constexpr auto empty_args
+            {
+                MakeEmptyArgs(std::make_index_sequence<diff>{})
+            };
+            constexpr auto tuple_args
+            {
+                MakeForwadTuple(std::forward<TupleArgs_t>(args)...)
+            };
+            auto eid_arg { MakeForwadTuple(eid) };
             constexpr auto cat_args { std::tuple_cat(eid_arg, tuple_args, empty_args) };
 
             return std::apply(&ComponentStorage_t::CreateRequieredComponents<ReqCmps_t...>, this, cat_args);

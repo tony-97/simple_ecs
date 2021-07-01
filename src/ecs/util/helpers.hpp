@@ -1,10 +1,8 @@
 #pragma once
 
 #include "ecs/util/type_aliases.hpp"
-#include <functional>
 #include <tuple>
 #include <type_traits>
-#include <utility>
 
 namespace ECS
 {
@@ -18,8 +16,8 @@ struct IsVariadicTemplated
     inline static constexpr bool value { false };
 };
 
-template<template<class...> class T, class... Argst_t>
-struct IsVariadicTemplated<T<Argst_t...>>
+template<template<class...> class T, class... Args_t>
+struct IsVariadicTemplated<T<Args_t...>>
 {
     inline static constexpr bool value { true };
 };
@@ -28,6 +26,9 @@ struct IsVariadicTemplated<T<Argst_t...>>
 // contains
 ///////////////////////////////////////////////////////////////////////////////
 template<typename T, typename ...Ts>
+struct IsOneOf;
+
+template<typename T, typename ...Ts>
 struct IsOneOf
 {
     constexpr static inline bool value
@@ -35,6 +36,25 @@ struct IsOneOf
         std::disjunction_v<std::is_same<T, Ts>...>
     };
 };
+
+template<typename T, template<class...> class U, class... Us>
+struct IsOneOf<T, U<Us...>> : IsOneOf<T, Us...> {  };
+
+template<typename T, typename ...Ts>
+inline constexpr bool IsOneOf_v = IsOneOf<T, Ts...>::value;
+
+template<class T, class U>
+struct IsSubsetOf;
+
+template<template<class...> class T, class... Types, class U>
+struct IsSubsetOf<T<Types...>, U>
+{
+    static inline constexpr bool value { std::disjunction_v<IsOneOf<Types, U>...> };
+};
+
+template<class T, class U>
+inline constexpr bool IsSubsetOf_v = IsSubsetOf<T, U>::value;
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // SameAsConstMemFunc
@@ -152,21 +172,61 @@ public:
 
 };
 
+
+///////////////////////////////////////////////////////////////////////////////
+// IsConstructible
+///////////////////////////////////////////////////////////////////////////////
+
+template <class...>
+using void_t = void;
+
+template <class, class T, class... Args>
+struct IsConstructibleIMPL
+: std::false_type {};
+
+template <class T, class... Args>
+struct IsConstructibleIMPL<void_t<decltype(T{std::declval<Args>()...})>,
+                           T, Args...> : std::true_type {};
+
+template <class T, class... Args>
+using IsConstructible = IsConstructibleIMPL<void_t<>, T, Args...>;
+
+template <class T, class... Args>
+inline static constexpr auto IsConstructible_v
+{
+    IsConstructible<T, Args...>::value
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 // Args_t
 ///////////////////////////////////////////////////////////////////////////////
 
-template<class... Args_t>
-Elements_t<Args_t...> MakeArgs(Args_t&&... args)
+template<class T, class... Args_t>
+struct ArgsWrapper_t
 {
-    return Elements_t<Args_t...>(std::forward<Args_t>(args)...);
+    using type = T;
+    Elements_t<Args_t...> mArgs {  };
+};
+
+template<class T,
+         class... Args_t,
+         std::enable_if_t<IsConstructible_v<T, Args_t...>, bool> = true>
+ArgsWrapper_t<T, Args_t...> MakeArgs(Args_t&&... args)
+{
+    return ArgsWrapper_t<T, Args_t...>{ std::forward<Args_t>(args)... };
+}
+
+template<class... Args_t>
+Elements_t<Args_t...> MakeForwadTuple(Args_t&&... args)
+{
+    return Elements_t<Args_t...>{ std::forward<Args_t>(args)... };
 }
 
 template<std::size_t... Is>
 constexpr auto
 MakeEmptyArgs(const std::index_sequence<Is...>&)
 {
-    return Elements_t{ ((void)Is, Elements_t<>{})... };
+    return std::tuple{ ((void)Is, Elements_t<>{})... };
 }
 
 } // namespace ECS

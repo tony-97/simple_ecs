@@ -81,7 +81,7 @@ struct Entity_t final : public EntityBase_t,
     explicit constexpr
     Entity_t(Entity_t<EntMan_t>&& ent_temp)
         : EntityBase_t { std::move(ent_temp) },
-          m_ID { ent_temp.m_ID } {  }
+          m_ID { std::move(ent_temp.m_ID) } {  }
 
     constexpr auto GetEntityID() const -> EntityID_t
     {

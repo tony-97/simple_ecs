@@ -4,7 +4,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
-#include <queue>
+#include <functional>
 
 #include "component_storage.hpp"
 
@@ -13,6 +13,7 @@
 #include <ecs/cmp/entity.hpp>
 #include <tmp/type_list.hpp>
 
+//TODO sort when destroy a entity
 //TODO vector of entities for systems
 //TODO create unique types for ComponentTypeID, ComponentID, EntityID_t
 /*TODO for enhanced loop
@@ -38,14 +39,20 @@ struct ComponentExtractorHelper_t
     }
 };
 
-template<class... Components_t>
+template<class... Systems_t>
+using ExtractComponentsFromSystems_t = 
+TMP::UniqueTypesContainer<
+TMP::TypeListCat_t<typename Systems_t::SystemSignature_t...>>;
+
+template<class... Systems_t>
 class EntityManager_t
 {
-
 public:
 
-    using Self_t = EntityManager_t<Components_t...>;
-    using SelfComponentStorage_t = ComponentStorage_t<Self_t>;
+    using Components_t = ExtractComponentsFromSystems_t<Systems_t...>;
+
+    using Self_t = EntityManager_t<Systems_t...>;
+    using SelfComponentStorage_t = ComponentStorage_t<Components_t>;
     using OwnEntity_t = Entity_t<Self_t>;
     using VecEntity_t = Storage_t<OwnEntity_t>;
 
@@ -55,11 +62,28 @@ public:
 
     constexpr explicit EntityManager_t() = default;
 
-    auto CreateEntity() -> OwnEntity_t&
+    template<class... Systems_types, class... TupleArgs_t>
+    auto CreateEntityForSystems(TupleArgs_t&&... args) -> OwnEntity_t&
     {
+        using SysCmps_t = ExtractComponentsFromSystems_t<Systems_types...>;
+        using ReqCmps_t = TMP::TypeList_t<typename TupleArgs_t::type...>;
+        using UniCmps_t = TMP::UniqueTypesContainer_t<ReqCmps_t>;
+        static_assert(IsSubsetOf_v<TMP::TypeList_t<Systems_types...>,
+                                   TMP::TypeList_t<Systems_t...>>,
+                      "The requiered systems does not exist in this instance");
+        static_assert(std::is_same_v<ReqCmps_t, UniCmps_t>,
+                      "Components need to be unique");
+        static_assert(TMP::IEqualTypes<SysCmps_t, ReqCmps_t>(),
+                      "Not the same components as the signature");
+
         const auto ent_id { mEntities.size() };
         mEntities.push_back(OwnEntity_t{ ent_id });
-        return mEntities.back();
+        auto& ent { mEntities.back() };
+
+        CreateRequieredComponents
+        <std::remove_reference_t<TupleArgs_t>::type...>(ent, args.mArgs...);
+
+        return ent;
     }
 
     auto GetEntities() const -> const VecEntity_t&
@@ -85,7 +109,7 @@ public:
     }
 
     constexpr auto
-    RemoveComponentsFromEntity(OwnEntity_t& e) -> void
+    RemoveAllComponentsFromEntity(OwnEntity_t& e) -> void
     {
         for (auto& [cmp_tp_id, cmp_id] : e) {
             auto eid { mComponents.RemoveComponentByTypeIDAndID(cmp_tp_id,
@@ -108,13 +132,12 @@ public:
 
     //TODO: add markedAsDead for prevent the last_entity don't being updated
     constexpr auto
-    RemoveEntity(const OwnEntity_t& e) -> void
+    RemoveEntity(OwnEntity_t& ent) -> void
     {
-        auto& ent { GetEntityByID(e.GetEntityID()) };
         auto& last_entity { GetEntities().back() };
-        RemoveComponentsFromEntity(ent);
-        UpdateComponentsEntityIDFromEntity(last_entity, e.GetEntityID());
-        ent = last_entity;
+        RemoveAllComponentsFromEntity(ent);
+        UpdateComponentsEntityIDFromEntity(last_entity, ent.GetEntityID());
+        ent = std::move(last_entity);
         GetEntities().pop_back();
     }
 
@@ -134,7 +157,7 @@ public:
         return SameAsConstMemFunc(this,
                                   &EntityManager_t::template
                                   GetEntityByComponent<InternalComponent_t>,
-                                  in_cmp);
+                                  std::forward<InternalComponent_t>(in_cmp));
     }
 
     template<typename ReqCmp_t>
@@ -143,7 +166,7 @@ public:
     -> const VecComponent_t<RemovePCR<ReqCmp_t>>&
     {
         return mComponents.template
-               GetRequieredComponentStorage<RemovePCR<ReqCmp_t>>();
+               GetRequieredComponentStorage<ReqCmp_t>();
     }
 
     template<typename ReqCmp_t>
@@ -233,7 +256,8 @@ public:
             std::make_index_sequence<std::tuple_size_v
                                     <std::remove_reference_t<decltype(cmps)>>>{}
         };
-        return CreateRequieredComponentsIMPL<ReqCmps_t...>(ent, cmps, indexes);
+        return CreateRequieredComponentsIMPL<ReqCmps_t...>
+               (ent, cmps, std::move(indexes));
     }
 
     template<typename ReqCmp_t>
@@ -291,9 +315,7 @@ public:
         return GetOptionalComponent<ReqCmp_t>(ent);
     }
 
-    template<typename ReqCmp_t,
-             typename std::enable_if_t<IsOneOf<ReqCmp_t,
-                                       Components_t...>::value, bool> = true>
+    template<typename ReqCmp_t>
     constexpr auto
     GetRequieredComponent(const OwnEntity_t& ent) const
     -> const ReqCmp_t&
@@ -312,10 +334,7 @@ public:
                GetRequieredComponentByID<ReqCmp_t>(cmp_id);
     }
 
-    template<typename ReqCmp_t,
-             typename std::enable_if_t<IsOneOf
-                                       <ReqCmp_t,
-                                        Components_t...>::value, bool> = true>
+    template<typename ReqCmp_t>
     constexpr auto
     GetRequieredComponent(const OwnEntity_t& ent)
     -> ReqCmp_t&
@@ -369,10 +388,9 @@ public:
     -> void
     {
         const_cast<Self_t*>
-        (this)->template DoForEachComponentTypeIMPL<MainCmp_t,
-                                                    ExtraCmp_t...>
-                                           (std::forward<This_t>(self),
-                                            std::forward<Callable_t>(callable));
+        (this)->template
+        DoForEachComponentTypeIMPL<MainCmp_t,ExtraCmp_t...>
+        (std::forward<This_t>(self), std::forward<Callable_t>(callable));
     }
 
     template<class MainCmp_t, class ...ExtraCmp_t>
@@ -382,9 +400,7 @@ public:
                                            const OwnEntity_t&)) const
     -> void
     {
-        DoForEachComponentTypeIMPL<RemovePCR<MainCmp_t>,
-                                   RemovePCR<ExtraCmp_t>...>(*this,
-                                                             sys_upd);
+        DoForEachComponentTypeIMPL<MainCmp_t,ExtraCmp_t...>(*this,sys_upd);
     }
 
     template<class MainCmp_t, class ...ExtraCmp_t>
@@ -394,9 +410,7 @@ public:
                                            OwnEntity_t&))
     -> void
     {
-        DoForEachComponentTypeIMPL<RemovePCR<MainCmp_t>,
-                                   RemovePCR<ExtraCmp_t>...>(*this,
-                                                             sys_upd);
+        DoForEachComponentTypeIMPL<MainCmp_t, ExtraCmp_t...>(*this, sys_upd);
     }
 
     template<class SysSignature_t,

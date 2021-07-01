@@ -21,21 +21,25 @@ struct GameFactory_t
     CreateEntity(Texture2D& sp, int px, int py, float sz = 5.0f)
     -> decltype(auto)
     {
-        auto& ent { m_EntMan.CreateEntity() };
+        auto ren_args { ECS::MakeArgs<RenderComponent_t>(sp, sz) };
+        auto phy_args { ECS::MakeArgs<PhysicsComponent_t>(VecInt{ px, py }, VecInt{ 5, 7 }) };
+        auto col_args { ECS::MakeArgs<ColliderComponent_t>(  ) };
+        auto hel_args { ECS::MakeArgs<HealthComponent_t>(50u) };
 
-        auto ren_args { ECS::MakeArgs(sp, sz) };
-        auto phy_args { ECS::MakeArgs(VecInt{ px, py }, VecInt{ 5, 7 }) };
-        auto col_args { ECS::MakeArgs(  ) };
-        auto hel_args { ECS::MakeArgs(50u) };
-
-        auto [ren, phy, col, hel]
+        auto& ent
         {
             m_EntMan.template
-            CreateRequieredComponents<RenderComponent_t,
-                                      PhysicsComponent_t,
-                                      ColliderComponent_t,
-                                      HealthComponent_t>
-            (ent, ren_args, phy_args, col_args, hel_args)
+            CreateEntityForSystems<RenderSystem_t,
+                                   PhysicsSystem_t,
+                                   ColliderSystem_t,
+                                   HealthSystem_t>
+            (ren_args, phy_args, col_args, hel_args)
+        };
+
+        auto [col, ren]
+        {
+            m_EntMan.template
+            GetRequieredComponents<ColliderComponent_t, RenderComponent_t>(ent)
         };
 
         col.BoxRoot.box.xRight = ren.wh.x;
@@ -60,20 +64,24 @@ struct GameFactory_t
     CreateSpawner(int x, int y, Callable_t&& cb)
     -> decltype(auto)
     {
-        auto& ent { m_EntMan.CreateEntity() };
+        auto phy_args { ECS::MakeArgs<PhysicsComponent_t>(VecInt{x, y}, VecInt{0, 1}) };
+        auto spw_args { ECS::MakeArgs<SpawnComponent_t>(std::forward<Callable_t>(cb)) };
+        auto col_args { ECS::MakeArgs<ColliderComponent_t>() };
 
-        auto phy_args { ECS::MakeArgs(VecInt{x, y}, VecInt{0, 1}) };
-        auto spw_args { ECS::MakeArgs(std::forward<Callable_t>(cb)) };
-        auto col_args { ECS::MakeArgs() };
-
-        auto [phy, spw, col]
+        auto& ent
         {
             m_EntMan.template
-            CreateRequieredComponents<PhysicsComponent_t,
-                                      SpawnComponent_t,
-                                      ColliderComponent_t>
-            (ent, phy_args, spw_args, col_args)
+            CreateEntityForSystems<PhysicsSystem_t,
+                                   SpawnSystem_t,
+                                   ColliderSystem_t>
+            (phy_args, spw_args, col_args)
         };
+
+        auto& col
+        {
+            m_EntMan.template GetRequieredComponent<ColliderComponent_t>(ent)
+        };
+
         col.mask = ColliderComponent_t::LNONE;
 
         return ent;
@@ -109,19 +117,24 @@ struct GameFactory_t
     {
         static Texture2D platform { LoadTexture("assets/platform.png") };
 
-        auto& ent { m_EntMan.CreateEntity() };
-
-        auto ren_args { ECS::MakeArgs(platform, sz) };
-        auto phy_args { ECS::MakeArgs(VecInt{x, y}, VecInt{  }) };
-        auto col_args { ECS::MakeArgs() };
-        auto [ren, phy, col]
+        auto ren_args { ECS::MakeArgs<RenderComponent_t>(platform, sz) };
+        auto phy_args { ECS::MakeArgs<PhysicsComponent_t>(VecInt{x, y}, VecInt{  }) };
+        auto col_args { ECS::MakeArgs<ColliderComponent_t>() };
+        auto& ent
         {
             m_EntMan.template
-            CreateRequieredComponents<RenderComponent_t,
-                                      PhysicsComponent_t,
-                                      ColliderComponent_t>
-            (ent, ren_args, phy_args, col_args)
+            CreateEntityForSystems<RenderSystem_t,
+                                   PhysicsSystem_t,
+                                   ColliderSystem_t>
+            (ren_args, phy_args, col_args)
         };
+
+        auto [col, ren]
+        {
+            m_EntMan.template
+            GetRequieredComponents<ColliderComponent_t, RenderComponent_t>(ent)
+        };
+
         col.mask = ColliderComponent_t::LPLATFORM;
 
         col.BoxRoot.box.xRight = ren.wh.x;
@@ -137,6 +150,7 @@ struct GameFactory_t
         static Texture2D player { LoadTexture("assets/sprite.png") };
         auto& ent { CreateRandomEntity(player, wh, hg, sz) };
 
+        //TODO: Transform Entity_t
         m_EntMan.template CreateRequieredComponent<InputComponent_t>(ent);
 
         ColliderComponent_t& col
