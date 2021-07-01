@@ -166,7 +166,7 @@ template<std::size_t... Is>
 constexpr auto
 MakeEmptyArgs(const std::index_sequence<Is...>&)
 {
-    return Elements_t{ ((void)Is, Elements_t<>{})... };
+    return std::tuple{ ((void)Is, Elements_t<>{})... };
 }
 
 } // namespace ECS

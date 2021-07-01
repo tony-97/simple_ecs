@@ -30,7 +30,8 @@ struct TypeListCat_t<TList_t<Types_t...>>
 };
 
 template<class First_t, class Second_t, class... Rest_t>
-struct TypeListCat_t : TypeListCat_t<typename TypeListCatIMPL_t<First_t, Second_t>::type, Rest_t...>
+struct TypeListCat_t<First_t, Second_t, Rest_t...>
+: TypeListCat_t<typename TypeListCatIMPL_t<First_t, Second_t>::type, Rest_t...>
 {
     
 };
