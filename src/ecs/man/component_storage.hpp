@@ -52,7 +52,7 @@ struct VectorComponent_t final : public ComponentVectorBase_t
     }
 };
 
-template<class EntMan_t> class ComponentStorage_t;
+template<class ComponentsTypes> class ComponentStorage_t;
 
 template<template<class...> class ComponentTypes_t,  class... Components_t>
 class ComponentStorage_t<ComponentTypes_t<Components_t...>> final : Uncopyable_t
@@ -104,9 +104,7 @@ public:
             EntityID = eid;
         }
 
-    private:
         EntID_t EntityID {  };
-    public:
         Component_t Self {  };
     };
 
@@ -206,7 +204,7 @@ public:
     GetRequiredComponentTypeID()
     -> ComponentTypeID_t
     {
-        auto index
+        constexpr auto index
         {
             IndexOfElement_t<InternalVector_t<RemovePCR<ReqCmp_t>>,
                              TableOfComponents_t>::value

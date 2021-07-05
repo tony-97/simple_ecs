@@ -108,7 +108,7 @@ struct ColliderSystem_t : SystemBase_t<ColliderComponent_t, PhysicsComponent_t>
                     GetRequieredComponent<PhysicsComponent_t>(ent2)
                 };
                 auto& col2 { ite2->Self };
-                if ((col1.mask & col2.mask) == 0) {
+                if ((col1.mask & col2.mask) != 0) {
                     CheckBoundingBoxNodeCollision(col1.BoxRoot, col2.BoxRoot,
                                                   phy1, phy2);
                 }

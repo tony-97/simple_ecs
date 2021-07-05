@@ -39,10 +39,15 @@ struct ComponentExtractorHelper_t
     }
 };
 
+template<class System_t>
+using SystemSignature_t = typename System_t::SystemSignature_t;
+
+template<class TupleArg_t>
+using TrueTupleArg_t = typename std::remove_reference_t<TupleArg_t>::type;
+
 template<class... Systems_t>
-using ExtractComponentsFromSystems_t = 
-TMP::UniqueTypesContainer<
-TMP::TypeListCat_t<typename Systems_t::SystemSignature_t...>>;
+using ExtractComponentsFromSystems_t = typename 
+TMP::UniqueTypesContainer_t<TMP::TypeListCat_t<SystemSignature_t<Systems_t>...>>;
 
 template<class... Systems_t>
 class EntityManager_t
@@ -66,7 +71,7 @@ public:
     auto CreateEntityForSystems(TupleArgs_t&&... args) -> OwnEntity_t&
     {
         using SysCmps_t = ExtractComponentsFromSystems_t<Systems_types...>;
-        using ReqCmps_t = TMP::TypeList_t<typename TupleArgs_t::type...>;
+        using ReqCmps_t = TMP::TypeList_t<TrueTupleArg_t<TupleArgs_t>...>;
         using UniCmps_t = TMP::UniqueTypesContainer_t<ReqCmps_t>;
         static_assert(IsSubsetOf_v<TMP::TypeList_t<Systems_types...>,
                                    TMP::TypeList_t<Systems_t...>>,
@@ -80,8 +85,8 @@ public:
         mEntities.push_back(OwnEntity_t{ ent_id });
         auto& ent { mEntities.back() };
 
-        CreateRequieredComponents
-        <std::remove_reference_t<TupleArgs_t>::type...>(ent, args.mArgs...);
+        CreateRequieredComponents<TrueTupleArg_t<TupleArgs_t>...>
+        (ent, args.mArgs...);
 
         return ent;
     }
@@ -448,7 +453,7 @@ public:
 private:
 
     Storage_t<OwnEntity_t> mEntities {  };
-    ComponentStorage_t<Self_t> mComponents {  };
+    SelfComponentStorage_t mComponents {  };
     //std::queue<EntityID> mDeadEntities {  };
 };
 

@@ -213,7 +213,7 @@ template<class T,
          std::enable_if_t<IsConstructible_v<T, Args_t...>, bool> = true>
 ArgsWrapper_t<T, Args_t...> MakeArgs(Args_t&&... args)
 {
-    return ArgsWrapper_t<T, Args_t...>{ std::forward<Args_t>(args)... };
+    return ArgsWrapper_t<T, Args_t...>{ { std::forward<Args_t>(args)... } };
 }
 
 template<class... Args_t>

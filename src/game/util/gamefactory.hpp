@@ -22,7 +22,8 @@ struct GameFactory_t
     -> decltype(auto)
     {
         auto ren_args { ECS::MakeArgs<RenderComponent_t>(sp, sz) };
-        auto phy_args { ECS::MakeArgs<PhysicsComponent_t>(VecInt{ px, py }, VecInt{ 5, 7 }) };
+        auto phy_args { ECS::MakeArgs<PhysicsComponent_t>(VecInt{ px, py },
+                                                          VecInt{ 5, 7 }) };
         auto col_args { ECS::MakeArgs<ColliderComponent_t>(  ) };
         auto hel_args { ECS::MakeArgs<HealthComponent_t>(50u) };
 
@@ -64,7 +65,8 @@ struct GameFactory_t
     CreateSpawner(int x, int y, Callable_t&& cb)
     -> decltype(auto)
     {
-        auto phy_args { ECS::MakeArgs<PhysicsComponent_t>(VecInt{x, y}, VecInt{0, 1}) };
+        auto phy_args { ECS::MakeArgs<PhysicsComponent_t>(VecInt{x, y},
+                                                          VecInt{0, 1}) };
         auto spw_args { ECS::MakeArgs<SpawnComponent_t>(std::forward<Callable_t>(cb)) };
         auto col_args { ECS::MakeArgs<ColliderComponent_t>() };
 
@@ -150,8 +152,8 @@ struct GameFactory_t
         static Texture2D player { LoadTexture("assets/sprite.png") };
         auto& ent { CreateRandomEntity(player, wh, hg, sz) };
 
-        //TODO: Transform Entity_t
-        m_EntMan.template CreateRequieredComponent<InputComponent_t>(ent);
+       // //TODO: Transform Entity_t
+       // m_EntMan.template CreateRequieredComponent<InputComponent_t>(ent);
 
         ColliderComponent_t& col
         {

@@ -70,19 +70,28 @@ template<class FirstTList_t, class SecondTList_t>
 using TypeListCatIMPL_t = typename TypeListCatIMPL<FirstTList_t,
                                                    SecondTList_t>::type;
 
-template<class FirstTList_t, class SecondTList_t, class... RestTypes_t>
-struct TypeListCat_t;
+template<class... TListTypes_t>
+struct TypeListCat;
+
+template<template<class...> class TList_t, class... Types>
+struct TypeListCat<TList_t<Types...>>
+{
+    using type = TypeList_t<Types...>;
+};
 
 template<class FirstTList_t, class SecondTList_t>
-struct TypeListCat_t<FirstTList_t, SecondTList_t>
+struct TypeListCat<FirstTList_t, SecondTList_t>
 {
     using type = TypeListCatIMPL_t<FirstTList_t, SecondTList_t>;
 };
 
 template<class First_t, class Second_t, class... Rest_t>
-struct TypeListCat_t
-: TypeListCat_t<TypeListCatIMPL_t<First_t, Second_t>, Rest_t...>
+struct TypeListCat<First_t, Second_t, Rest_t...>
+: TypeListCat<TypeListCatIMPL_t<First_t, Second_t>, Rest_t...>
 {  };
+
+template<class... TListTypes_t>
+using TypeListCat_t = typename TypeListCat<TListTypes_t...>::type;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Pass types as template argument
