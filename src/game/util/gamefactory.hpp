@@ -153,7 +153,8 @@ struct GameFactory_t
         auto& ent { CreateRandomEntity(player, wh, hg, sz) };
 
        // //TODO: Transform Entity_t
-       // m_EntMan.template CreateRequieredComponent<InputComponent_t>(ent);
+        auto inp_args { ECS::MakeArgs<InputComponent_t>() };
+        m_EntMan.template AddEntityToSystems<InputSystem_t>(ent, inp_args);
 
         ColliderComponent_t& col
         {

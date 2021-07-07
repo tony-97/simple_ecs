@@ -67,13 +67,13 @@ public:
 
     constexpr explicit EntityManager_t() = default;
 
-    template<class... Systems_types, class... TupleArgs_t>
+    template<class... SystemTypes, class... TupleArgs_t>
     auto CreateEntityForSystems(TupleArgs_t&&... args) -> OwnEntity_t&
     {
-        using SysCmps_t = ExtractComponentsFromSystems_t<Systems_types...>;
+        using SysCmps_t = ExtractComponentsFromSystems_t<SystemTypes...>;
         using ReqCmps_t = TMP::TypeList_t<TrueTupleArg_t<TupleArgs_t>...>;
         using UniCmps_t = TMP::UniqueTypesContainer_t<ReqCmps_t>;
-        static_assert(IsSubsetOf_v<TMP::TypeList_t<Systems_types...>,
+        static_assert(IsSubsetOf_v<TMP::TypeList_t<SystemTypes...>,
                                    TMP::TypeList_t<Systems_t...>>,
                       "The requiered systems does not exist in this instance");
         static_assert(std::is_same_v<ReqCmps_t, UniCmps_t>,
@@ -89,6 +89,21 @@ public:
         (ent, args.mArgs...);
 
         return ent;
+    }
+
+    template<class... SystemTypes_t>
+    auto RemoveEntityFromSystems()
+    {
+        
+    }
+
+    //FIXME: not fully implemented yet...
+    template<class... SystemTypes_t, class... TupleArgs_t>
+    auto AddEntityToSystems(OwnEntity_t& ent, TupleArgs_t&&... args)
+    {
+        //using Comps = ExtractComponentsFromSystems_t<SystemTypes_t...>;
+        CreateRequieredComponents<TrueTupleArg_t<TupleArgs_t>...>
+        (ent, args.mArgs...);
     }
 
     auto GetEntities() const -> const VecEntity_t&
