@@ -14,10 +14,9 @@
 #include <tmp/type_list.hpp>
 
 //TODO sort when destroy a entity
-//TODO vector of entities for systems
 //TODO create unique types for ComponentTypeID, ComponentID, EntityID_t
 /*TODO for enhanced loop
- * iterator tat returns a tuple with components 
+ * iterator that returns a tuple with components 
  */
 namespace ECS
 {
@@ -85,8 +84,8 @@ public:
         mEntities.push_back(OwnEntity_t{ ent_id });
         auto& ent { mEntities.back() };
 
-        CreateRequieredComponents<TrueTupleArg_t<TupleArgs_t>...>
-        (ent, args.mArgs...);
+        CreateRequieredComponents
+            <TrueTupleArg_t<TupleArgs_t>...>(ent, args.mArgs...);
 
         return ent;
     }
@@ -256,28 +255,42 @@ public:
         };
     }
 
+    template<class ReqCmp_t, template<class,class,class...> class TupleArg_t, class SelfArg_t, class EntArg_t, class... Args_t>
+    ReqCmp_t& applywrapper(TupleArg_t<SelfArg_t, EntArg_t, Args_t...>&& tuple_args)
+    {
+        return std::apply(&Self_t::CreateRequieredComponent<ReqCmp_t, Args_t...>, std::forward<TupleArg_t<SelfArg_t, EntArg_t, Args_t...>>(tuple_args));
+    }
+
     template<class... ReqCmps_t, class... TupleArgs_t>
     constexpr auto
     CreateRequieredComponents(OwnEntity_t& ent, TupleArgs_t&&... args)
     -> Elements_t<ReqCmps_t&...>
     {
-        auto cmps
+        std::tuple<OwnEntity_t&> ent_arg { ent };
+        std::tuple<Self_t*> self_arg { this };
+        return
         {
-            mComponents.template
-            CreateRequieredComponents<ReqCmps_t...>
-            (
-             ent.GetEntityID(),
-             std::forward<TupleArgs_t>(args)...
-            )
+            applywrapper<ReqCmps_t>(std::tuple_cat(self_arg,
+                                    ent_arg,
+                                    std::forward<TupleArgs_t>(args)))...
         };
+       // auto cmps
+       // {
+       //     mComponents.template
+       //     CreateRequieredComponents<ReqCmps_t...>
+       //     (
+       //      ent.GetEntityID(),
+       //      std::forward<TupleArgs_t>(args)...
+       //     )
+       // };
 
-        constexpr auto indexes
-        {
-            std::make_index_sequence<std::tuple_size_v
-                                    <std::remove_reference_t<decltype(cmps)>>>{}
-        };
-        return CreateRequieredComponentsIMPL<ReqCmps_t...>
-               (ent, cmps, std::move(indexes));
+       // constexpr auto indexes
+       // {
+       //     std::make_index_sequence<std::tuple_size_v
+       //                             <std::remove_reference_t<decltype(cmps)>>>{}
+       // };
+       // return CreateRequieredComponentsIMPL<ReqCmps_t...>
+       //        (ent, cmps, std::move(indexes));
     }
 
     template<typename ReqCmp_t>
@@ -335,7 +348,8 @@ public:
         return GetOptionalComponent<ReqCmp_t>(ent);
     }
 
-    template<typename ReqCmp_t>
+    template<typename ReqCmp_t,
+             std::enable_if_t<not std::is_pointer_v<ReqCmp_t>, bool> = true>
     constexpr auto
     GetRequieredComponent(const OwnEntity_t& ent) const
     -> const ReqCmp_t&

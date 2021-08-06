@@ -1,58 +1,18 @@
 #pragma once
 
+#include <variant>
 #include <array>
-#include <tuple>
-#include <type_traits>
 #include <utility>
 
 #include <ecs/util/type_aliases.hpp>
 #include <ecs/util/helpers.hpp>
-#include <vector>
+
+#include <tmp/type_list.hpp>
 
 namespace ECS
 {
 
-struct ComponentVectorBase_t
-{
-    virtual ~ComponentVectorBase_t() = default;
-
-    virtual EntityID_t
-    RemoveComponentByIndex(ComponentID_t cmp_id) = 0;
-
-    virtual void
-    UpdateComponentEntityID(ComponentID_t cmp_id, EntityID_t eid) = 0;
-};
-
-template<class T>
-struct VectorComponent_t final : public ComponentVectorBase_t
-{
-    Storage_t<T> mComponents {  };
-
-    auto
-    RemoveComponentByIndex(ComponentID_t cmp_id)
-    -> EntityID_t override
-    {
-        auto index { static_cast<std::size_t>(cmp_id) };
-        auto& last_cmp { mComponents.back() };
-        auto& rem_cmp  { mComponents[index] };
-        auto eid { last_cmp.GetEntityID() };
-
-        rem_cmp = last_cmp;
-        mComponents.pop_back();
-
-        return eid;
-    }
-
-    auto
-    UpdateComponentEntityID(ComponentID_t cmp_id, EntityID_t eid)
-    -> void override
-    {
-        auto index { static_cast<std::size_t>(cmp_id) };
-        mComponents[index].SetEntityID(eid);
-    }
-};
-
-template<class ComponentsTypes> class ComponentStorage_t;
+template<class ComponentTypes> class ComponentStorage_t;
 
 template<template<class...> class ComponentTypes_t,  class... Components_t>
 class ComponentStorage_t<ComponentTypes_t<Components_t...>> final : Uncopyable_t
@@ -60,13 +20,10 @@ class ComponentStorage_t<ComponentTypes_t<Components_t...>> final : Uncopyable_t
 
 public:
 
-    template<class EntID_t, class Component_t>
+    template<class Component_t>
     struct InternalComponent_t final
     {
-        friend ComponentStorage_t<ComponentTypes_t<Components_t...>>;
-        //friend EntMan_t<Components_t...>;
-
-        using EntityID_type  = EntID_t;
+        using EntityID_type  = EntityID_t;
         using Component_type = Component_t;
 
         template<class EID_t, class... Args_t>
@@ -83,10 +40,11 @@ public:
         : InternalComponent_t(std::forward<EID_t>(eid),
                               std::forward<TupleArgs_t>(args),
                               std::make_index_sequence<
-                              std::tuple_size_v<
-                              std::remove_reference_t<TupleArgs_t>>>{})
+                                std::tuple_size_v<
+                                    std::remove_reference_t<TupleArgs_t>>>{})
         {  }
 
+    private:
         template<class EID_t, class TupleArgs_t, std::size_t... I>
         constexpr
         InternalComponent_t(EID_t&& eid,
@@ -96,33 +54,24 @@ public:
           Self{ std::get<I>(std::forward<TupleArgs_t>(args))... }
         {  }
 
-        constexpr auto GetEntityID()       -> EntID_t { return EntityID; }
-        constexpr auto GetEntityID() const -> EntID_t { return EntityID; }
+    public:
+        constexpr auto GetEntityID()       -> EntityID_t { return EntityID; }
+        constexpr auto GetEntityID() const -> EntityID_t { return EntityID; }
 
-        constexpr auto SetEntityID(EntID_t eid) -> void
-        {
-            EntityID = eid;
-        }
-
-        EntID_t EntityID {  };
+        EntityID_t EntityID {  };
         Component_t Self {  };
     };
 
     template<class T>
-    using IComponent_t = InternalComponent_t<EntityID_t, T>;
+    using VecComponent_t = Storage_t<InternalComponent_t<T>>;
 
-    template<class T>
-    using VecComponent_t = Storage_t<IComponent_t<T>>;
-
-    template<class T>
-    using InternalVector_t = VectorComponent_t<IComponent_t<T>>; 
-
-    using TableOfComponents_t = Elements_t<InternalVector_t<Components_t>...>;
+    using TableOfComponents_t =
+        std::array<std::variant<VecComponent_t<Components_t>...>,
+                   sizeof...(Components_t)>;
 
     constexpr explicit ComponentStorage_t()
     {
         CheckIfComponentsAreUnique();
-        InitVecsPtr();
     }
 
     template<typename ReqCmp_t, typename ...Args_t>
@@ -166,9 +115,10 @@ public:
                 MakeForwadTuple(std::forward<TupleArgs_t>(args)...)
             };
             auto eid_arg { MakeForwadTuple(eid) };
-            constexpr auto cat_args { std::tuple_cat(eid_arg, tuple_args, empty_args) };
+            auto self_arg{ MakeForwadTuple(this) };
+            constexpr auto cat_args { std::tuple_cat(self_arg, eid_arg, tuple_args, empty_args) };
 
-            return std::apply(&ComponentStorage_t::CreateRequieredComponents<ReqCmps_t...>, this, cat_args);
+            return std::apply(&ComponentStorage_t::CreateRequieredComponents<ReqCmps_t...>, cat_args);
         } else {
             return
             {
@@ -188,7 +138,17 @@ public:
                          EntityID_t eid)
     -> void
     {
-        mVecs[cmp_tp_id]->UpdateComponentEntityID(cmp_id, eid);
+        auto update_entity_id
+        {
+            [&cmp_id, &eid](auto& cmps)
+            {
+                
+            }
+        };
+
+        auto& vec_variant { mComponentVectors[cmp_tp_id] };
+        return std::visit(update_entity_id, vec_variant);
+        //mVecs[cmp_tp_id]->UpdateComponentEntityID(cmp_id, eid);
     }
 
     constexpr auto
@@ -196,18 +156,28 @@ public:
                                  ComponentID_t cmp_id)
     -> EntityID_t
     {
-        return mVecs[cmp_tp_id]->RemoveComponentByIndex(cmp_id);
+        auto remove_component_by_index
+        {
+            [&cmp_id](auto& cmps)
+            {
+                
+            }
+        };
+
+        auto& vec_variant { mComponentVectors[cmp_tp_id] };
+        return std::visit(remove_component_by_index, vec_variant);
+        //return mVecs[cmp_tp_id]->RemoveComponentByIndex(cmp_id);
     }
 
     template<typename ReqCmp_t>
     static constexpr auto
-    GetRequiredComponentTypeID()
+    GetRequiredComponentTypeIndex()
     -> ComponentTypeID_t
     {
         constexpr auto index
         {
-            IndexOfElement_t<InternalVector_t<RemovePCR<ReqCmp_t>>,
-                             TableOfComponents_t>::value
+            TMP::IndexOf_v<RemovePCR<ReqCmp_t>,
+                           TMP::TypeList_t<Components_t...>>
         };
         return static_cast<ComponentTypeID_t>(index);
     }
@@ -219,12 +189,13 @@ public:
     {
         CheckIfComponentIsInThisInstance<RemovePCR<ReqCmp_t>>();
 
-        auto& vec_cmps
+        constexpr auto index { GetRequiredComponentIndexID<ReqCmp_t>() };
+        auto& vec_variant
         {
-            std::get<InternalVector_t<RemovePCR<ReqCmp_t>>>(mComponentVectors)
+            mComponentVectors[index]
         };
 
-        return vec_cmps.mComponents;
+        return std::get<VecComponent_t<RemovePCR<ReqCmp_t>>>(vec_variant);
     }
 
     template<typename ReqCmp_t>
@@ -280,19 +251,7 @@ private:
                       "Components need to be unique");
     }
 
-    template<std::size_t I = 0>
-    constexpr auto InitVecsPtr() -> void
-    {
-        if constexpr (I < sizeof...(Components_t)) {
-            auto& vec_cmps { std::get<I>(mComponentVectors) };
-            mVecs[I] = static_cast<ComponentVectorBase_t*>(&vec_cmps);
-            InitVecsPtr<I + 1>();
-        }
-    } 
-
     TableOfComponents_t mComponentVectors {  };
-    std::array<ComponentVectorBase_t*,
-               sizeof...(Components_t)> mVecs {  };
 };
 
 } // namespace ECS
